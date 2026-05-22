@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -49,10 +49,20 @@ class ModSnapshot(Base):
     subscriptions: Mapped[int | None] = mapped_column(Integer)
     lifetime_subs: Mapped[int | None] = mapped_column(Integer)
     favorited: Mapped[int | None] = mapped_column(Integer)
+    lifetime_favorited: Mapped[int | None] = mapped_column(Integer)
+    followers: Mapped[int | None] = mapped_column(Integer)
+    lifetime_followers: Mapped[int | None] = mapped_column(Integer)
     views: Mapped[int | None] = mapped_column(Integer)
 
-    # AJAX endpoint
+    # vote_data block from IPublishedFileService/GetDetails
+    votes_up: Mapped[int | None] = mapped_column(Integer)
+    votes_down: Mapped[int | None] = mapped_column(Integer)
+    vote_score: Mapped[float | None] = mapped_column(Float)
+
+    # AJAX endpoint (Steam comment count from scrape) +
+    # API-reported public comment count (more accurate when present).
     comments_count: Mapped[int | None] = mapped_column(Integer)
+    num_comments_public: Mapped[int | None] = mapped_column(Integer)
 
     # HTML-scraped values — canonical for display, match what users see on Steam
     visitors_display: Mapped[int | None] = mapped_column(Integer)

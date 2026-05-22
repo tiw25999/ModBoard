@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     steam_creator_id: str
     poll_interval_minutes: int = 30
 
+    # Optional Steam Web API key. With a key, GetPublishedFileDetails
+    # (and the newer IPublishedFileService.GetDetails endpoint we now
+    # use) consistently returns engagement counters that the
+    # unauthenticated edge cache sometimes omits.
+    steam_web_api_key: str = ""
+
     # Google OAuth (optional — leave empty to disable login)
     google_client_id: str = ""
     google_client_secret: str = ""

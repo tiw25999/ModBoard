@@ -122,14 +122,22 @@ async def poll_once() -> None:
                     await _fanout_to_subscribers(
                         session, mod.id, "mod_new_comment", preview, new_count
                     )
+            vote_data = api.get("vote_data") or {}
             snap = ModSnapshot(
                 mod_id=mod.id,
                 captured_at=datetime.now(timezone.utc),
                 subscriptions=api.get("subscriptions"),
                 lifetime_subs=api.get("lifetime_subscriptions"),
                 favorited=api.get("favorited"),
+                lifetime_favorited=api.get("lifetime_favorited"),
+                followers=api.get("followers"),
+                lifetime_followers=api.get("lifetime_followers"),
                 views=api.get("views"),
+                votes_up=vote_data.get("votes_up"),
+                votes_down=vote_data.get("votes_down"),
+                vote_score=vote_data.get("score"),
                 comments_count=comments_total,
+                num_comments_public=api.get("num_comments_public"),
                 last_updated=(
                     datetime.fromtimestamp(api["time_updated"], tz=timezone.utc)
                     if api.get("time_updated") else None

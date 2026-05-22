@@ -53,28 +53,51 @@
 
   <div class="detail-body">
     {% if snap %}
+    {# Fallback chain for each KPI — see mod_list.html for rationale. #}
+    {% set subs   = snap.subscribers_display or snap.subscriptions or snap.lifetime_subs or 0 %}
+    {% set favs   = snap.favorites_display or snap.favorited or snap.lifetime_favorited or 0 %}
+    {% set vis    = snap.visitors_display or snap.views or 0 %}
+    {% set comms  = snap.num_comments_public or snap.comments_count or 0 %}
     <div class="kpi-grid">
       <div class="kpi">
         <span class="k">Subscribers</span>
-        <span class="v">{{ snap.subscribers_display if snap.subscribers_display is not none else 0 }}</span>
+        <span class="v">{{ subs }}</span>
         <span class="sub">currently active</span>
       </div>
       <div class="kpi">
         <span class="k">Visitors</span>
-        <span class="v">{{ snap.visitors_display if snap.visitors_display is not none else 0 }}</span>
+        <span class="v">{{ vis }}</span>
         <span class="sub">unique lifetime</span>
       </div>
       <div class="kpi">
         <span class="k">Favorites</span>
-        <span class="v">{{ snap.favorites_display if snap.favorites_display is not none else 0 }}</span>
+        <span class="v">{{ favs }}</span>
         <span class="sub">starred</span>
       </div>
       <div class="kpi">
         <span class="k">Comments</span>
-        <span class="v">{{ snap.comments_count if snap.comments_count is not none else 0 }}</span>
+        <span class="v">{{ comms }}</span>
         <span class="sub">on workshop</span>
       </div>
     </div>
+
+    {% if snap.votes_up is not none or snap.votes_down is not none %}
+    {# Steam vote_data — only renders when the API returned it
+       (modern IPublishedFileService endpoint only). #}
+    {% set vu = snap.votes_up or 0 %}
+    {% set vd = snap.votes_down or 0 %}
+    {% set vtotal = vu + vd %}
+    <div class="vote-bar" style="display:flex;gap:var(--s-3);align-items:center;margin:var(--s-4) 0;font-size:13px;color:var(--fg-2)">
+      <span title="thumbs up">👍 <b style="color:var(--fg-0)">{{ vu }}</b></span>
+      <span title="thumbs down">👎 <b style="color:var(--fg-0)">{{ vd }}</b></span>
+      {% if snap.vote_score is not none %}
+      <span title="Steam relevance score (0-1)">score <b style="color:var(--fg-0)">{{ "%.2f"|format(snap.vote_score) }}</b></span>
+      {% endif %}
+      {% if vtotal %}
+      <span>· {{ (100 * vu / vtotal)|round|int }}% positive</span>
+      {% endif %}
+    </div>
+    {% endif %}
 
     <div class="detail-meta">
       <span>Last updated on Steam ·
@@ -83,8 +106,8 @@
       {% if snap.captured_at %}
       <span>Captured · <b>{{ snap.captured_at.strftime("%Y-%m-%d %H:%M") }}</b></span>
       {% endif %}
-      {% if snap.views is not none %}
-      <span>Views · <b>{{ snap.views }}</b></span>
+      {% if snap.followers is not none and snap.followers %}
+      <span>Followers · <b>{{ snap.followers }}</b></span>
       {% endif %}
     </div>
     {% else %}
