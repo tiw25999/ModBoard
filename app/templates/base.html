@@ -12,7 +12,10 @@
   {% set path = request.url.path %}
   {% set is_admin = path.startswith('/admin') %}
   <header>
-    <a class="brand" href="/">ModBoard <span class="brand-sub">// Workshop Telemetry</span></a>
+    <div class="header-left">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      <a class="brand" href="/">ModBoard <span class="brand-sub">// Workshop Telemetry</span></a>
+    </div>
 
     <nav class="topnav">
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
@@ -21,7 +24,7 @@
 
     <div class="header-right">
       {% if is_admin %}
-        <span class="admin-badge" title="HTTP Basic — close tab to drop credentials">Admin Mode</span>
+        <span class="admin-badge" title="HTTP Basic — close tab to drop credentials">Admin</span>
         <a href="/" class="nav-link nav-exit">Exit ↗</a>
       {% else %}
         <span class="version-stamp">v1 · live</span>
