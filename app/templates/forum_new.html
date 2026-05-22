@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}New Thread — Forum — ModBoard{% endblock %}
+{% block body %}
+
+<a href="/forum" class="back-link">← back to forum</a>
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">New thread</span>
+    <h1>Start a <span class="serif-accent">conversation</span></h1>
+  </div>
+</section>
+
+{% if error %}
+<div class="form-error">⚠ {{ error }}</div>
+{% endif %}
+
+<form method="post" action="/forum/new" class="forum-form">
+  <input type="text" name="website" tabindex="-1" autocomplete="off"
+         style="position:absolute;left:-9999px" aria-hidden="true">
+
+  <div class="form-grid">
+    <div class="field">
+      <label for="author_name">Your name</label>
+      <input class="input" id="author_name" name="author_name" type="text"
+             maxlength="64" required value="{{ form.author_name or '' }}">
+      <p class="hint">No signup — used only for this thread</p>
+    </div>
+
+    <div class="field">
+      <label for="kind">Kind</label>
+      <select class="input" id="kind" name="kind">
+        {% for k in kinds %}
+          <option value="{{ k }}" {% if (form.kind or 'discussion') == k %}selected{% endif %}>{{ k|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="mod_id">About a specific mod? (optional)</label>
+      <select class="input" id="mod_id" name="mod_id">
+        <option value="">— general / no mod —</option>
+        {% for m in mods %}
+          <option value="{{ m.id }}"
+            {% if (form.mod_id and form.mod_id|int == m.id) or (preselected_mod == m.id) %}selected{% endif %}>
+            {{ m.app_name or "—" }} · {{ m.title or m.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="title">Title</label>
+    <input class="input" id="title" name="title" type="text"
+           maxlength="256" minlength="5" required value="{{ form.title or '' }}">
+  </div>
+
+  <div class="field">
+    <label for="body">Body</label>
+    <textarea class="input" id="body" name="body" rows="10"
+              minlength="10" required>{{ form.body or '' }}</textarea>
+    <p class="hint">Supports <code>**bold**</code>, <code>*italic*</code>, <code>&gt; quote</code>. URLs auto-link.</p>
+  </div>
+
+  <div style="display:flex;gap:var(--s-3);align-items:center">
+    <button type="submit" class="btn primary">Post thread</button>
+    <a href="/forum" class="btn">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

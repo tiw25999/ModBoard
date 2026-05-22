@@ -19,6 +19,7 @@
 
     <nav class="topnav">
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
+      <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
       <a href="/admin/mods" class="nav-link {% if is_admin %}is-active{% endif %}">Admin</a>
     </nav>
 

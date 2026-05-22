@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Community Forum — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Community</span>
+    <h1>Forum <span class="serif-accent">of</span> mod requests &amp; chatter</h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Anonymous-friendly · type a name, post a thread, no signup required</span>
+    </div>
+  </div>
+  <div class="meta">
+    <a href="/forum/new" class="btn primary" style="text-decoration:none">
+      <span>+ New thread</span><span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<nav class="forum-filters" aria-label="Filter by kind">
+  <a href="/forum" class="forum-filter {% if not active_kind %}is-active{% endif %}">
+    All <span class="count">{{ counts.all }}</span>
+  </a>
+  {% for k in kinds %}
+  <a href="/forum?kind={{ k }}" class="forum-filter f-{{ k }} {% if active_kind == k %}is-active{% endif %}">
+    {{ k|capitalize }} <span class="count">{{ counts[k] }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+{% if threads %}
+<ul class="thread-list">
+  {% for t in threads %}
+  <li class="thread-row {% if t.pinned %}pinned{% endif %} {% if t.locked %}locked{% endif %} status-{{ t.status }}">
+    <form class="thread-vote" method="post" action="/forum/{{ t.id }}/upvote">
+      <button type="submit" class="upvote-btn" title="Upvote">
+        <span class="arrow">▲</span>
+        <span class="n">{{ t.upvotes }}</span>
+      </button>
+    </form>
+
+    <div class="thread-main">
+      <h3 class="thread-title">
+        <a href="/forum/{{ t.id }}/{{ t.slug }}">
+          {% if t.pinned %}<span class="pin-icon" title="Pinned">📌</span>{% endif %}
+          {{ t.title }}
+        </a>
+      </h3>
+      <div class="thread-tags">
+        <span class="kind kind-{{ t.kind }}">{{ t.kind }}</span>
+        <span class="status status-{{ t.status }}">{{ t.status }}</span>
+        {% if t.mod %}
+          <span class="mod-link">about <a href="/mod/{{ t.mod.id }}">{{ t.mod.title or t.mod.name }}</a></span>
+        {% endif %}
+        {% if t.locked %}<span class="locked-flag">🔒 locked</span>{% endif %}
+      </div>
+      <div class="thread-meta">
+        <span>by <b>{{ t.author_name }}</b></span>
+        <span>·</span>
+        <span>{{ t.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+        <span>·</span>
+        <span>{{ t.reply_count }} repl{{ "y" if t.reply_count == 1 else "ies" }}</span>
+        {% if t.reply_count and t.last_post_at != t.created_at %}
+          <span>· last reply {{ t.last_post_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="thread-empty">
+  No threads {% if active_kind %} with that filter{% endif %} yet — be the first to post
+</div>
+{% endif %}
+
+{% endblock %}
