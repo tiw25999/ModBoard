@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} — ModBoard{% endblock %}
+{% block description %}{{ profile.name }} on ModBoard — {{ threads|length }} thread{{ "" if threads|length == 1 else "s" }} · {{ replies|length }} repl{{ "y" if replies|length == 1 else "ies" }} · {{ upvotes_received }} upvotes received.{% endblock %}
+{% block og_type %}profile{% endblock %}
+{% block og_image %}{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div class="profile-head">
+    {% if profile.avatar_url %}
+      <img class="profile-avatar" src="{{ profile.avatar_url }}" alt="" referrerpolicy="no-referrer">
+    {% else %}
+      <div class="profile-avatar placeholder">{{ profile.name[0]|upper }}</div>
+    {% endif %}
+    <div>
+      <span class="eyebrow">Community member</span>
+      <h1>{{ profile.name }}</h1>
+      <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+        joined {{ profile.created_at.strftime("%B %Y") }}
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="hero-stats" style="grid-template-columns:repeat(3, 1fr)">
+  <div class="hero-stat">
+    <span class="hero-stat-k">Threads opened</span>
+    <span class="hero-stat-v">{{ threads|length }}</span>
+    <span class="hero-stat-sub">{% if threads %}most recent {{ threads[0].created_at.strftime("%b %d, %Y") }}{% else %}—{% endif %}</span>
+  </div>
+  <div class="hero-stat">
+    <span class="hero-stat-k">Replies posted</span>
+    <span class="hero-stat-v">{{ replies|length }}</span>
+    <span class="hero-stat-sub">{% if replies %}most recent {{ replies[0].created_at.strftime("%b %d, %Y") }}{% else %}—{% endif %}</span>
+  </div>
+  <div class="hero-stat">
+    <span class="hero-stat-k">Upvotes received</span>
+    <span class="hero-stat-v">{{ upvotes_received }}</span>
+    <span class="hero-stat-sub">across all threads</span>
+  </div>
+</div>
+
+<div class="profile-grid">
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Threads</span>
+      <span class="section-meta">{{ threads|length }} shown</span>
+    </div>
+    {% if threads %}
+    <ul class="thread-list">
+      {% for t in threads %}
+      <li class="thread-row status-{{ t.status }}">
+        <div class="thread-vote">
+          <div class="upvote-btn" style="cursor:default">
+            <span class="arrow">▲</span>
+            <span class="n">{{ t.upvotes }}</span>
+          </div>
+        </div>
+        <div class="thread-main">
+          <h3 class="thread-title">
+            <a href="/forum/{{ t.id }}/{{ t.slug }}">{{ t.title }}</a>
+          </h3>
+          <div class="thread-tags">
+            <span class="kind kind-{{ t.kind }}">{{ t.kind }}</span>
+            <span class="status status-{{ t.status }}">{{ t.status }}</span>
+          </div>
+          <div class="thread-meta">
+            <span>{{ t.created_at.strftime("%Y-%m-%d") }}</span>
+            <span>·</span>
+            <span>{{ t.reply_count }} repl{{ "y" if t.reply_count == 1 else "ies" }}</span>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="thread-empty">No threads yet</div>
+    {% endif %}
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Replies</span>
+      <span class="section-meta">{{ replies|length }} shown</span>
+    </div>
+    {% if replies %}
+    <ul class="reply-list">
+      {% for p in replies %}
+      {% set th = thread_lookup.get(p.thread_id) %}
+      <li class="reply">
+        <div class="reply-meta">
+          {% if th %}
+            <a href="/forum/{{ th.id }}/{{ th.slug }}#post-{{ p.id }}"><b>on {{ th.title|truncate(50) }}</b></a>
+          {% else %}
+            <b>(thread removed)</b>
+          {% endif %}
+          <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+        </div>
+        <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="thread-empty">No replies yet</div>
+    {% endif %}
+  </section>
+</div>
+
+{% endblock %}

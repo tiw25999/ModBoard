@@ -30,7 +30,7 @@
       {% if thread.locked %}<span class="locked-flag">🔒 locked</span>{% endif %}
     </div>
     <div class="thread-meta">
-      opened by <b {% if thread.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ thread.author_name }}</b>
+      opened by {% if thread.author_user_id %}<a href="/u/{{ thread.author_user_id }}">{% endif %}<b {% if thread.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ thread.author_name }}</b>{% if thread.author_user_id %}</a>{% endif %}
       · {{ thread.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
     </div>
 
@@ -72,7 +72,7 @@
     <li class="reply" id="post-{{ p.id }}">
       <div class="reply-meta">
         <span class="reply-author">
-          <b {% if p.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ p.author_name }}</b>
+          {% if p.author_user_id %}<a href="/u/{{ p.author_user_id }}">{% endif %}<b {% if p.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ p.author_name }}</b>{% if p.author_user_id %}</a>{% endif %}
         </span>
         <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
       </div>

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_
 
 from app.db import get_db
-from app.models import ForumThread, Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
+from app.models import ForumPost, ForumThread, Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot, User
 from app.services.bbcode import steam_bbcode_to_html
 
 router = APIRouter()
@@ -157,6 +157,63 @@ async def mod_discussions(
     return templates.TemplateResponse(
         request, "mod_discussions.html",
         {"mod": mod, "discussions": discussions, "counts": counts, "active_tab": "discussions"},
+    )
+
+
+@router.get("/u/{user_id:int}", response_class=HTMLResponse)
+async def public_user_profile(
+    request: Request,
+    user_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    """Public profile for any registered user — shows what they posted in
+    the forum + cumulative stats. Email is never exposed."""
+    user = await session.get(User, user_id)
+    if user is None:
+        raise HTTPException(404)
+
+    from sqlalchemy import func as _func, desc as _desc
+
+    threads = (
+        await session.execute(
+            select(ForumThread)
+            .where(ForumThread.author_user_id == user_id)
+            .order_by(_desc(ForumThread.created_at))
+            .limit(50)
+        )
+    ).scalars().all()
+    replies = (
+        await session.execute(
+            select(ForumPost)
+            .where(ForumPost.author_user_id == user_id)
+            .order_by(_desc(ForumPost.created_at))
+            .limit(50)
+        )
+    ).scalars().all()
+    upvotes_received = int(
+        (await session.execute(
+            select(_func.coalesce(_func.sum(ForumThread.upvotes), 0))
+            .where(ForumThread.author_user_id == user_id)
+        )).scalar() or 0
+    )
+    # Resolve thread titles for reply rendering
+    reply_thread_ids = {p.thread_id for p in replies}
+    thread_lookup = {}
+    if reply_thread_ids:
+        rows = (await session.execute(
+            select(ForumThread).where(ForumThread.id.in_(reply_thread_ids))
+        )).scalars().all()
+        thread_lookup = {t.id: t for t in rows}
+
+    return templates.TemplateResponse(
+        request, "user_profile.html",
+        {
+            "profile": user,
+            "threads": threads,
+            "replies": replies,
+            "thread_lookup": thread_lookup,
+            "upvotes_received": upvotes_received,
+        },
     )
 
 
