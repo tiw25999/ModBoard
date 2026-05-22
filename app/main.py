@@ -4,7 +4,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+from app.routes import public as public_routes
 from app.services.poller import poller_task
 
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +20,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ModBoard", lifespan=lifespan)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.include_router(public_routes.router)
 
 
 @app.get("/health")

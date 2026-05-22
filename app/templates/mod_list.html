@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Mods</h1>
+<ul class="modlist">
+{% for row in mods %}
+  <li>
+    <a href="/mod/{{ row.mod.id }}">
+      {% if row.mod.thumbnail_url %}<img src="{{ row.mod.thumbnail_url }}" alt="">{% endif %}
+      <strong>{{ row.mod.title or row.mod.name }}</strong>
+    </a>
+    {% if row.snap %}
+      <span>Subscribers: {{ row.snap.subscribers_display or 0 }}</span>
+      <span>Favorites: {{ row.snap.favorites_display or 0 }}</span>
+      <span>Comments: {{ row.snap.comments_count or 0 }}</span>
+    {% endif %}
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,30 @@
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db import get_db
+from app.models import Mod, ModSnapshot
+
+router = APIRouter()
+templates = Jinja2Templates(directory="app/templates")
+
+
+async def _latest_snapshot(session: AsyncSession, mod_id: int) -> ModSnapshot | None:
+    q = (
+        select(ModSnapshot)
+        .where(ModSnapshot.mod_id == mod_id)
+        .order_by(ModSnapshot.captured_at.desc())
+        .limit(1)
+    )
+    return (await session.execute(q)).scalar_one_or_none()
+
+
+@router.get("/", response_class=HTMLResponse)
+async def index(request: Request, session: AsyncSession = Depends(get_db)):
+    mods = (
+        await session.execute(select(Mod).where(Mod.public.is_(True)).order_by(Mod.name))
+    ).scalars().all()
+    rows = [{"mod": m, "snap": await _latest_snapshot(session, m.id)} for m in mods]
+    return templates.TemplateResponse(request, "mod_list.html", {"mods": rows})
