@@ -22,6 +22,9 @@ class Mod(Base):
     snapshots: Mapped[list["ModSnapshot"]] = relationship(
         back_populates="mod", cascade="all, delete-orphan"
     )
+    comments: Mapped[list["ModComment"]] = relationship(
+        back_populates="mod", cascade="all, delete-orphan"
+    )
 
 
 class ModSnapshot(Base):
@@ -48,3 +51,23 @@ class ModSnapshot(Base):
     last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     mod: Mapped[Mod] = relationship(back_populates="snapshots")
+
+
+class ModComment(Base):
+    __tablename__ = "mod_comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    mod_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("mods.id", ondelete="CASCADE"), index=True
+    )
+    comment_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+
+    author_name: Mapped[str | None] = mapped_column(String(128))
+    author_profile_url: Mapped[str | None] = mapped_column(Text)
+    author_avatar_url: Mapped[str | None] = mapped_column(Text)
+
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    mod: Mapped[Mod] = relationship(back_populates="comments")
