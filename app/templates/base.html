@@ -9,8 +9,24 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ffb547'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='monospace' font-weight='700' font-size='18' fill='%23000'%3EM%3C/text%3E%3C/svg%3E">
 </head>
 <body>
+  {% set path = request.url.path %}
+  {% set is_admin = path.startswith('/admin') %}
   <header>
-    <a href="/">ModBoard // Workshop Telemetry</a>
+    <a class="brand" href="/">ModBoard <span class="brand-sub">// Workshop Telemetry</span></a>
+
+    <nav class="topnav">
+      <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
+      <a href="/admin/mods" class="nav-link {% if is_admin %}is-active{% endif %}">Admin</a>
+    </nav>
+
+    <div class="header-right">
+      {% if is_admin %}
+        <span class="admin-badge" title="HTTP Basic — close tab to drop credentials">Admin Mode</span>
+        <a href="/" class="nav-link nav-exit">Exit ↗</a>
+      {% else %}
+        <span class="version-stamp">v1 · live</span>
+      {% endif %}
+    </div>
   </header>
   <main>{% block body %}{% endblock %}</main>
   {% block scripts %}{% endblock %}
