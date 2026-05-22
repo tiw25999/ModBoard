@@ -4,8 +4,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.db import SessionLocal
 from app.routes import admin as admin_routes
@@ -15,6 +17,8 @@ from app.routes import public as public_routes
 from app.services.auth import is_admin as _is_admin_cookie
 from app.services.poller import poller_task
 from app.services.session import session_user_id
+
+_error_templates = Jinja2Templates(directory="app/templates")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -66,6 +70,26 @@ async def attach_current_user(request: Request, call_next):
                     "avatar_url": user.avatar_url,
                 }
     return await call_next(request)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def html_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Render a themed error page for HTML clients; keep JSON for API/probe calls."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and exc.status_code >= 400 and exc.status_code != 401:
+        # Make sure middleware-attached attrs exist (handler runs before per-route ones in some cases)
+        if not hasattr(request.state, "is_admin"):
+            request.state.is_admin = _is_admin_cookie(request)
+        if not hasattr(request.state, "user"):
+            request.state.user = None
+        return _error_templates.TemplateResponse(
+            request, "error.html",
+            {"status_code": exc.status_code, "message": exc.detail},
+            status_code=exc.status_code,
+        )
+    # 401 keeps the WWW-Authenticate header so OAuth/Basic still works
+    from starlette.responses import JSONResponse
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
 
 @app.get("/health")

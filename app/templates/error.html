@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ status_code }} — ModBoard{% endblock %}
+{% block body %}
+
+<section class="error-page">
+  <div class="error-code">{{ status_code }}</div>
+  <h1 class="error-title">
+    {% if status_code == 404 %}Not <span class="serif-accent">found</span>
+    {% elif status_code == 403 %}<span class="serif-accent">Forbidden</span>
+    {% elif status_code == 429 %}Slow <span class="serif-accent">down</span>
+    {% elif status_code >= 500 %}Server <span class="serif-accent">error</span>
+    {% else %}{{ message or "Something went wrong" }}{% endif %}
+  </h1>
+  <p class="error-desc">
+    {% if status_code == 404 %}
+      The page you were looking for doesn't exist or was removed.
+    {% elif status_code == 403 %}
+      You don't have permission to view this page.
+      {% if not is_admin %}<br>Are you trying to access admin? <a href="/auth/login?next={{ request.url.path }}">Sign in</a>.{% endif %}
+    {% elif status_code == 429 %}
+      Too many requests. Please wait a moment and try again.
+    {% elif status_code >= 500 %}
+      Something broke on our end. The error was logged — try again in a minute.
+    {% else %}
+      {{ message or "An unexpected error occurred." }}
+    {% endif %}
+  </p>
+  <div class="error-actions">
+    <a href="/" class="btn primary">← Back to mods</a>
+    <a href="/forum" class="btn">Visit forum</a>
+  </div>
+</section>
+
+{% endblock %}

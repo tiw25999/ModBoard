@@ -168,3 +168,93 @@ async def delete_mod(mod_id: int, session: AsyncSession = Depends(get_db)):
         await session.delete(mod)
         await session.commit()
     return RedirectResponse("/admin/mods", status_code=303)
+
+
+# ---------- Forum moderation inbox ----------------------------------------
+
+@router.get("/forum", response_class=HTMLResponse)
+async def forum_moderation(
+    request: Request,
+    filter: str = "all",
+    session: AsyncSession = Depends(get_db),
+):
+    """One-page moderation surface: filter chips at top, thread list with
+    inline pin/lock/status/delete, plus a side feed of the latest replies
+    so the operator can see brand-new noise without opening each thread."""
+    q = (
+        select(ForumThread)
+        .options(selectinload(ForumThread.mod))
+        .order_by(ForumThread.last_post_at.desc())
+        .limit(100)
+    )
+    if filter == "locked":
+        q = q.where(ForumThread.locked.is_(True))
+    elif filter == "wontfix":
+        q = q.where(ForumThread.status == "wontfix")
+    elif filter == "open":
+        q = q.where(ForumThread.status == "open")
+    elif filter == "addressed":
+        q = q.where(ForumThread.status == "addressed")
+    threads = (await session.execute(q)).scalars().all()
+
+    recent_replies = (
+        await session.execute(
+            select(ForumPost)
+            .order_by(ForumPost.created_at.desc())
+            .limit(15)
+        )
+    ).scalars().all()
+    # Index replies by thread for the side feed display
+    thread_lookup = {t.id: t for t in (await session.execute(
+        select(ForumThread).options(selectinload(ForumThread.mod))
+        .where(ForumThread.id.in_([p.thread_id for p in recent_replies]) if recent_replies else select(ForumThread.id).where(ForumThread.id == -1))
+    )).scalars().all()}
+
+    totals = {
+        "all": await _count(session, ForumThread),
+        "open": int((await session.execute(
+            select(func.count()).select_from(ForumThread).where(ForumThread.status == "open")
+        )).scalar() or 0),
+        "addressed": int((await session.execute(
+            select(func.count()).select_from(ForumThread).where(ForumThread.status == "addressed")
+        )).scalar() or 0),
+        "wontfix": int((await session.execute(
+            select(func.count()).select_from(ForumThread).where(ForumThread.status == "wontfix")
+        )).scalar() or 0),
+        "locked": int((await session.execute(
+            select(func.count()).select_from(ForumThread).where(ForumThread.locked.is_(True))
+        )).scalar() or 0),
+        "replies": await _count(session, ForumPost),
+    }
+
+    return templates.TemplateResponse(
+        request, "admin_forum.html",
+        {
+            "threads": threads,
+            "recent_replies": recent_replies,
+            "thread_lookup": thread_lookup,
+            "totals": totals,
+            "active_filter": filter,
+        },
+    )
+
+
+@router.post("/forum/post/{post_id}/delete")
+async def admin_delete_post(post_id: int, session: AsyncSession = Depends(get_db)):
+    post = await session.get(ForumPost, post_id)
+    if post is not None:
+        thread = await session.get(ForumThread, post.thread_id)
+        await session.delete(post)
+        if thread is not None:
+            thread.reply_count = max(0, thread.reply_count - 1)
+        await session.commit()
+    return RedirectResponse("/admin/forum", status_code=303)
+
+
+@router.post("/forum/thread/{thread_id}/delete")
+async def admin_delete_thread(thread_id: int, session: AsyncSession = Depends(get_db)):
+    thread = await session.get(ForumThread, thread_id)
+    if thread is not None:
+        await session.delete(thread)
+        await session.commit()
+    return RedirectResponse("/admin/forum", status_code=303)

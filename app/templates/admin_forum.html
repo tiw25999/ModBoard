@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Admin · Forum moderation — ModBoard{% endblock %}
+{% block body %}
+
+<section class="admin-hero">
+  <div class="admin-hero-left">
+    <span class="eyebrow">Moderation</span>
+    <h1>Forum <span class="serif-accent">queue</span></h1>
+    <div class="admin-hero-status">
+      {{ totals.all }} thread{{ "" if totals.all == 1 else "s" }} · {{ totals.replies }} repl{{ "y" if totals.replies == 1 else "ies" }}
+    </div>
+  </div>
+  <div class="admin-hero-actions">
+    <a href="/admin" class="btn">← Dashboard</a>
+    <a href="/forum" class="btn">View public forum →</a>
+  </div>
+</section>
+
+<!-- Filter chips -->
+<nav class="mod-filters" aria-label="Filter threads">
+  {% set filters = [
+    ("all",        "All",        totals.all),
+    ("open",       "Open",       totals.open),
+    ("addressed",  "Addressed",  totals.addressed),
+    ("wontfix",    "Won't fix",  totals.wontfix),
+    ("locked",     "Locked",     totals.locked),
+  ] %}
+  {% for value, label, count in filters %}
+  <a href="/admin/forum?filter={{ value }}"
+     class="mod-filter-chip {% if active_filter == value %}is-active{% endif %}">
+    {{ label }} <span class="count">{{ count }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+<div class="admin-main">
+  <!-- Thread queue with inline actions -->
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Threads</span>
+      <span class="section-meta">{{ threads|length }} shown</span>
+    </div>
+
+    {% if threads %}
+    <div class="mod-thread-list">
+      {% for t in threads %}
+      <article class="mod-thread {% if t.pinned %}pinned{% endif %} {% if t.locked %}locked{% endif %}">
+        <div class="mod-thread-head">
+          <div class="mod-thread-title">
+            <a href="/forum/{{ t.id }}/{{ t.slug }}" target="_blank">{{ t.title }}</a>
+            {% if t.pinned %}<span class="mod-tag-flag">📌 pinned</span>{% endif %}
+            {% if t.locked %}<span class="mod-tag-flag locked">🔒 locked</span>{% endif %}
+          </div>
+          <div class="mod-thread-meta">
+            <span class="kind kind-{{ t.kind }}">{{ t.kind }}</span>
+            <span class="status status-{{ t.status }}">{{ t.status }}</span>
+            {% if t.mod %}<span class="dash-game-pill">{{ t.mod.title or t.mod.name }}</span>{% endif %}
+            <span>by <b>{{ t.author_name }}</b></span>
+            <span>· {{ t.created_at.strftime("%b %d %H:%M") }}</span>
+            <span>· {{ t.reply_count }} repl{{ "y" if t.reply_count == 1 else "ies" }}</span>
+            <span>· {{ t.upvotes }} ▲</span>
+          </div>
+        </div>
+
+        <div class="mod-thread-preview">{{ t.body_raw|truncate(220) }}</div>
+
+        <div class="mod-thread-actions">
+          <form method="post" action="/forum/{{ t.id }}/status">
+            <select name="status" class="input-small">
+              {% for s in ["open", "addressed", "wontfix", "closed"] %}
+                <option value="{{ s }}" {% if s == t.status %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-row-link">Set</button>
+          </form>
+          <form method="post" action="/forum/{{ t.id }}/pin">
+            <button type="submit" class="btn-row-link">{{ "Unpin" if t.pinned else "Pin" }}</button>
+          </form>
+          <form method="post" action="/forum/{{ t.id }}/lock">
+            <button type="submit" class="btn-row-link">{{ "Unlock" if t.locked else "Lock" }}</button>
+          </form>
+          <form method="post" action="/admin/forum/thread/{{ t.id }}/delete"
+                onsubmit="return confirm('Delete this thread + all replies?\n\n{{ t.title|e }}');">
+            <button type="submit" class="btn-row-danger">Delete</button>
+          </form>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="thread-empty">No threads in this filter</div>
+    {% endif %}
+  </section>
+
+  <!-- Latest replies side panel — fast spam triage -->
+  <aside class="admin-activity-panel">
+    <div class="section-head">
+      <span class="eyebrow">Latest replies</span>
+      <span class="section-meta">spam triage</span>
+    </div>
+
+    {% if recent_replies %}
+    <ul class="activity-feed">
+      {% for p in recent_replies %}
+      <li class="activity-row">
+        <div class="activity-icon">💬</div>
+        <div class="activity-body">
+          <div class="activity-head">
+            <b>{{ p.author_name }}</b>
+            {% set th = thread_lookup.get(p.thread_id) %}
+            {% if th %}
+              <span class="activity-sep">on</span>
+              <a href="/forum/{{ th.id }}/{{ th.slug }}#post-{{ p.id }}" target="_blank">{{ th.title|truncate(40) }}</a>
+            {% endif %}
+          </div>
+          <div class="activity-snippet">{{ p.body_html|striptags|truncate(120) }}</div>
+          <div class="activity-when">
+            {{ p.created_at.strftime("%b %d %H:%M") }}
+            <form method="post" action="/admin/forum/post/{{ p.id }}/delete" style="display:inline;margin-left:8px"
+                  onsubmit="return confirm('Delete this reply?');">
+              <button type="submit" class="btn-row-danger" style="padding:2px 6px;font-size:9px">Delete</button>
+            </form>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="thread-empty">No replies yet</div>
+    {% endif %}
+  </aside>
+</div>
+
+{% endblock %}

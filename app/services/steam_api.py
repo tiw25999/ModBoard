@@ -38,9 +38,7 @@ async def get_published_file_details(file_ids: list[int]) -> list[FileDetails]:
     return payload["response"]["publishedfiledetails"]
 
 
-async def get_app_name(app_id: int) -> str | None:
-    """Look up a Steam app's display name from the public Store API.
-    Returns None on any failure — caller should treat as "unknown" and retry next poll."""
+async def _fetch_app_name_uncached(app_id: int) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
@@ -55,3 +53,15 @@ async def get_app_name(app_id: int) -> str | None:
         return entry.get("data", {}).get("name")
     except Exception:
         return None
+
+
+async def get_app_name(app_id: int) -> str | None:
+    """Look up a Steam app's display name from the public Store API.
+    Cached for a day — app names virtually never change, and the Store
+    API is rate-limited (~200 req / 5min per IP)."""
+    from app.services.cache import cached
+    return await cached(
+        f"steam_app_name:{app_id}",
+        ttl_seconds=24 * 60 * 60,
+        producer=lambda: _fetch_app_name_uncached(app_id),
+    )
