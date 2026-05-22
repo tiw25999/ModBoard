@@ -1,29 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Admin — Mods{% endblock %}
+{% block title %}Admin · Mods — ModBoard{% endblock %}
 {% block body %}
-<h1>Admin · Mods</h1>
 
-<form method="post" action="/admin/mods">
-  <input type="number" name="workshop_id" placeholder="Workshop ID" required>
-  <input type="text" name="name" placeholder="Short name (e.g. HoldoutSurvivors)" required>
-  <button type="submit">Add</button>
-</form>
+<section class="admin-head">
+  <div>
+    <span class="eyebrow">Control Panel</span>
+    <h1 style="margin-top:10px">Admin <span class="amp">&amp;</span> mods</h1>
+  </div>
+  <div class="meta" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2)">
+    {{ mods|length }} tracked · authenticated
+  </div>
+</section>
 
-<table>
-  <thead><tr><th>ID</th><th>Name</th><th>Title</th><th></th></tr></thead>
-  <tbody>
-  {% for m in mods %}
-    <tr>
-      <td>{{ m.id }}</td>
-      <td>{{ m.name }}</td>
-      <td>{{ m.title or "—" }}</td>
-      <td>
-        <form method="post" action="/admin/mods/{{ m.id }}/delete">
-          <button type="submit">Delete</button>
-        </form>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<div class="admin-grid">
+  <aside class="panel">
+    <h3>Add new mod</h3>
+    <form method="post" action="/admin/mods" autocomplete="off">
+      <div class="field">
+        <label for="workshop_id">Workshop ID</label>
+        <input class="input" id="workshop_id" type="number" name="workshop_id" placeholder="3721918079" required>
+      </div>
+      <div class="field">
+        <label for="name">Short name</label>
+        <input class="input" id="name" type="text" name="name" placeholder="LifeMilestones" required>
+      </div>
+      <button class="btn primary" type="submit" style="width:100%;justify-content:center">
+        + Track mod
+      </button>
+      <p class="hint">First snapshot lands on the next polling cycle.</p>
+    </form>
+  </aside>
+
+  <section>
+    {% if mods %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th style="width:200px">Workshop ID</th>
+          <th style="width:200px">Slug</th>
+          <th>Title</th>
+          <th style="width:120px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in mods %}
+        <tr>
+          <td class="col-id">{{ m.id }}</td>
+          <td class="col-name">{{ m.name }}</td>
+          <td class="col-title">{{ m.title or "—" }}</td>
+          <td class="col-actions">
+            <form class="inline-delete" method="post" action="/admin/mods/{{ m.id }}/delete"
+                  onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}? Snapshots and comments will be removed.');">
+              <button type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="admin-empty">No mods tracked yet — add one on the left</div>
+    {% endif %}
+  </section>
+</div>
+
 {% endblock %}

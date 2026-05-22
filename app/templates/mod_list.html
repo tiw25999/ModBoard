@@ -1,19 +1,66 @@
 {% extends "base.html" %}
+{% block title %}Tracked Mods — ModBoard{% endblock %}
 {% block body %}
-<h1>Mods</h1>
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Live Index</span>
+    <h1>Tracked <span class="serif-accent">workshop</span> mods</h1>
+  </div>
+  <div class="meta">
+    {{ mods|length }} mod{{ "" if mods|length == 1 else "s" }} · polling every cycle
+  </div>
+</section>
+
+{% if mods %}
+<div class="list-intro">
+  <span class="count">Sorted by most recent snapshot · <b>{{ mods|length }}</b> total</span>
+</div>
+
 <ul class="modlist">
 {% for row in mods %}
   <li>
-    <a href="/mod/{{ row.mod.id }}">
-      {% if row.mod.thumbnail_url %}<img src="{{ row.mod.thumbnail_url }}" alt="">{% endif %}
-      <strong>{{ row.mod.title or row.mod.name }}</strong>
+    <a href="/mod/{{ row.mod.id }}" class="thumb" aria-label="{{ row.mod.title or row.mod.name }}">
+      {% if row.mod.thumbnail_url %}
+        <img src="{{ row.mod.thumbnail_url }}" alt="" loading="lazy">
+      {% endif %}
     </a>
-    {% if row.snap %}
-      <span>Subscribers: {{ row.snap.subscribers_display or 0 }}</span>
-      <span>Favorites: {{ row.snap.favorites_display or 0 }}</span>
-      <span>Comments: {{ row.snap.comments_count or 0 }}</span>
-    {% endif %}
+    <div class="body">
+      <h2 class="title"><a href="/mod/{{ row.mod.id }}" style="color:inherit">{{ row.mod.title or row.mod.name }}</a></h2>
+      <div class="slug">
+        <span>{{ row.mod.name }}</span>
+        <span class="dot">·</span>
+        <span>id {{ row.mod.id }}</span>
+        {% if row.snap and row.snap.last_updated %}
+          <span class="dot">·</span>
+          <span>updated {{ row.snap.last_updated.strftime("%Y-%m-%d") }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric">
+        <span class="v">{{ row.snap.subscribers_display if row.snap and row.snap.subscribers_display is not none else "—" }}</span>
+        <span class="k">Subs</span>
+      </div>
+      <div class="metric">
+        <span class="v">{{ row.snap.favorites_display if row.snap and row.snap.favorites_display is not none else "—" }}</span>
+        <span class="k">Favs</span>
+      </div>
+      <div class="metric">
+        <span class="v">{{ row.snap.comments_count if row.snap and row.snap.comments_count is not none else "—" }}</span>
+        <span class="k">Comments</span>
+      </div>
+    </div>
   </li>
 {% endfor %}
 </ul>
+{% else %}
+<div class="modlist">
+  <div class="empty">
+    <p>No mods tracked yet.</p>
+    <p class="hint">Add one from the admin panel</p>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
