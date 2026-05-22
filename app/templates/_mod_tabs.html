@@ -1,0 +1,41 @@
+{% macro mod_tabs(mod, counts, active) -%}
+<nav class="mod-tabs" aria-label="Mod sections">
+  <a href="/mod/{{ mod.id }}" class="mod-tab {% if active == 'overview' %}is-active{% endif %}">
+    <span class="lbl">Overview</span>
+  </a>
+  <a href="/mod/{{ mod.id }}/comments" class="mod-tab {% if active == 'comments' %}is-active{% endif %}">
+    <span class="lbl">Comments</span>
+    <span class="count">{{ counts.comments }}</span>
+  </a>
+  <a href="/mod/{{ mod.id }}/discussions" class="mod-tab {% if active == 'discussions' %}is-active{% endif %}">
+    <span class="lbl">Discussions</span>
+    <span class="count">{{ counts.discussions }}</span>
+  </a>
+  <a href="/mod/{{ mod.id }}/changelog" class="mod-tab {% if active == 'changelog' %}is-active{% endif %}">
+    <span class="lbl">Changelog</span>
+    <span class="count">{{ counts.changelogs }}</span>
+  </a>
+  <a href="/mod/{{ mod.id }}/stats" class="mod-tab {% if active == 'stats' %}is-active{% endif %}">
+    <span class="lbl">Stats</span>
+  </a>
+</nav>
+{%- endmacro %}
+
+{% macro mod_pageheader(mod) -%}
+<section class="page-head">
+  <div>
+    <span class="eyebrow">{{ mod.app_name or "Workshop" }}</span>
+    <h1>{{ mod.title or mod.name }}</h1>
+    <div class="detail-id" style="margin-top:10px">
+      <span class="pill">{{ mod.name }}</span>
+      <span style="margin:0 8px">·</span>
+      <span>workshop id <b style="color:var(--fg-0)">{{ mod.id }}</b></span>
+    </div>
+  </div>
+  <div class="meta">
+    <a href="{{ mod.workshop_url }}" target="_blank" rel="noopener" style="color:var(--amber)">
+      Open on Steam ↗
+    </a>
+  </div>
+</section>
+{%- endmacro %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
+{% block title %}{{ mod.title or mod.name }} · Discussions — ModBoard{% endblock %}
+{% block body %}
+
+{{ mod_pageheader(mod) }}
+{{ mod_tabs(mod, counts, 'discussions') }}
+
+<div class="section-head">
+  <span class="eyebrow">Active threads</span>
+  <span class="section-meta">Recent activity first · {{ discussions|length }} shown</span>
+</div>
+
+{% if discussions %}
+<ul class="discussion-list">
+  {% for d in discussions %}
+  <li class="discussion-row">
+    <div class="discussion-main">
+      <h3 class="discussion-title">
+        {% if d.url %}
+          <a href="{{ d.url }}" target="_blank" rel="noopener">{{ d.title }}</a>
+        {% else %}
+          {{ d.title }}
+        {% endif %}
+        <span class="discussion-ext">↗</span>
+      </h3>
+      {% if d.body_preview %}
+      <p class="discussion-preview">{{ d.body_preview[:200] }}{% if d.body_preview|length > 200 %}…{% endif %}</p>
+      {% endif %}
+      <div class="discussion-meta">
+        {% if d.author_name %}<span>opened by <b>{{ d.author_name }}</b></span>{% endif %}
+        {% if d.last_post_at %}
+          <span>·</span>
+          <span>last post {{ d.last_post_at.strftime("%Y-%m-%d %H:%M UTC") }}{% if d.last_post_author %} by <b>{{ d.last_post_author }}</b>{% endif %}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="discussion-side">
+      <div class="discussion-replies">
+        <span class="n">{{ d.reply_count if d.reply_count is not none else 0 }}</span>
+        <span class="k">repl{{ "y" if d.reply_count == 1 else "ies" }}</span>
+      </div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="thread-empty">No discussion threads yet</div>
+{% endif %}
+
+{% endblock %}

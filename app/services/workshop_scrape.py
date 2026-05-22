@@ -12,6 +12,7 @@ COMMENT_URL = (
     "{creator_id}/{mod_id}/"
 )
 CHANGELOG_URL = "https://steamcommunity.com/sharedfiles/filedetails/changelog/{mod_id}"
+DISCUSSIONS_URL = "https://steamcommunity.com/sharedfiles/filedetails/discussions/{mod_id}"
 UA = "Mozilla/5.0 (compatible; ModBoard/0.1)"
 
 
@@ -186,6 +187,92 @@ async def fetch_changelog(mod_id: int) -> list[ScrapedChangelog]:
             "author_profile_url": author_url,
             "body_html": body_html,
             "posted_at": posted_at,
+        })
+    return out
+
+
+class ScrapedDiscussion(TypedDict):
+    thread_id: str
+    title: str
+    body_preview: str | None
+    author_name: str | None
+    url: str | None
+    reply_count: int | None
+    last_post_at: datetime | None
+    last_post_author: str | None
+
+
+def _parse_tooltip_blob(raw: str) -> tuple[str | None, str | None]:
+    """Extract last-post author name from the data-tooltip-forum HTML blob.
+    Returns (body_preview, last_post_author). The blob is HTML-encoded; we
+    decode and re-parse it as a fragment.
+    """
+    if not raw:
+        return None, None
+    import html as _html
+    fragment = BeautifulSoup(_html.unescape(raw), "lxml")
+    body_node = fragment.select_one(".topic_hover_text")
+    body_preview = body_node.get_text(" ", strip=True) if body_node else None
+    # Last post author = the SECOND .topic_hover_data
+    data_nodes = fragment.select(".topic_hover_data")
+    last_author = data_nodes[1].get_text(strip=True) if len(data_nodes) >= 2 else None
+    return body_preview, last_author
+
+
+async def fetch_discussions(mod_id: int) -> list[ScrapedDiscussion]:
+    async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": UA}) as client:
+        r = await client.get(DISCUSSIONS_URL.format(mod_id=mod_id))
+        r.raise_for_status()
+    soup = BeautifulSoup(r.text, "lxml")
+    out: list[ScrapedDiscussion] = []
+    for row in soup.select(".forum_topic"):
+        assert isinstance(row, Tag)
+        thread_id = row.get("data-gidforumtopic")
+        if not isinstance(thread_id, str):
+            continue
+
+        title_node = row.select_one(".forum_topic_name")
+        title = title_node.get_text(strip=True) if isinstance(title_node, Tag) else ""
+        if not title:
+            continue
+
+        op_node = row.select_one(".forum_topic_op")
+        author = op_node.get_text(strip=True) if isinstance(op_node, Tag) else None
+
+        overlay = row.select_one("a.forum_topic_overlay")
+        url = overlay.get("href") if isinstance(overlay, Tag) else None
+        if not isinstance(url, str):
+            url = None
+
+        # Reply count text follows the <img> inside .forum_topic_reply_count
+        replies_node = row.select_one(".forum_topic_reply_count")
+        reply_count: int | None = None
+        if isinstance(replies_node, Tag):
+            txt = replies_node.get_text(strip=True)
+            digits = re.sub(r"[^\d]", "", txt)
+            reply_count = int(digits) if digits else None
+
+        last_node = row.select_one(".forum_topic_lastpost[data-timestamp]")
+        last_post_at: datetime | None = None
+        if isinstance(last_node, Tag):
+            ts_raw = last_node.get("data-timestamp")
+            if isinstance(ts_raw, str) and ts_raw.isdigit():
+                last_post_at = datetime.fromtimestamp(int(ts_raw), tz=timezone.utc)
+
+        tooltip_raw = row.get("data-tooltip-forum")
+        body_preview, last_author = _parse_tooltip_blob(
+            tooltip_raw if isinstance(tooltip_raw, str) else ""
+        )
+
+        out.append({
+            "thread_id": thread_id,
+            "title": title,
+            "body_preview": body_preview,
+            "author_name": author,
+            "url": url,
+            "reply_count": reply_count,
+            "last_post_at": last_post_at,
+            "last_post_author": last_author,
         })
     return out
 

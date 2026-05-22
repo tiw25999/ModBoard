@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
+{% block title %}{{ mod.title or mod.name }} · Comments — ModBoard{% endblock %}
+{% block body %}
+
+{{ mod_pageheader(mod) }}
+{{ mod_tabs(mod, counts, 'comments') }}
+
+<div class="section-head">
+  <span class="eyebrow">Workshop comments</span>
+  <span class="section-meta">Newest first · {{ comments|length }} shown</span>
+</div>
+
+{% if comments %}
+<div class="thread">
+  {% for c in comments %}
+  <article class="comment">
+    <div class="avatar {% if not c.author_avatar_url %}placeholder{% endif %}">
+      {% if c.author_avatar_url %}
+        <img src="{{ c.author_avatar_url }}" alt="" loading="lazy">
+      {% else %}
+        {{ (c.author_name or "?")[0]|upper }}
+      {% endif %}
+    </div>
+    <div class="body">
+      <div class="who">
+        <span class="author">
+          {% if c.author_profile_url %}
+            <a href="{{ c.author_profile_url }}" target="_blank" rel="noopener">{{ c.author_name or "anonymous" }}</a>
+          {% else %}
+            {{ c.author_name or "anonymous" }}
+          {% endif %}
+        </span>
+        <span class="when">
+          {% if c.posted_at %}{{ c.posted_at.strftime("%Y-%m-%d · %H:%M UTC") }}{% endif %}
+        </span>
+      </div>
+      <div class="text">{{ c.body_html|safe }}</div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty">No comments scraped yet</div>
+{% endif %}
+
+{% endblock %}
