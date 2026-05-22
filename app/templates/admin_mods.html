@@ -2,66 +2,78 @@
 {% block title %}Admin · Mods — ModBoard{% endblock %}
 {% block body %}
 
-<section class="admin-head">
-  <div>
-    <span class="eyebrow">Control Panel</span>
-    <h1 style="margin-top:10px">Admin <span class="amp">&amp;</span> mods</h1>
+<section class="admin-hero">
+  <div class="admin-hero-left">
+    <span class="eyebrow">Mods Management</span>
+    <h1>Tracked <span class="serif-accent">workshop</span> mods</h1>
+    <div class="admin-hero-status">{{ mods|length }} mod{{ "" if mods|length == 1 else "s" }} in rotation</div>
   </div>
-  <div class="meta" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2)">
-    {{ mods|length }} tracked · authenticated
+  <div class="admin-hero-actions">
+    <a href="/admin" class="btn">← Back to dashboard</a>
   </div>
 </section>
 
-<div class="admin-grid">
-  <aside class="panel">
-    <h3>Add new mod</h3>
-    <form method="post" action="/admin/mods" autocomplete="off">
-      <div class="field">
-        <label for="workshop_id">Workshop ID</label>
-        <input class="input" id="workshop_id" type="number" name="workshop_id" placeholder="3721918079" required>
-      </div>
-      <div class="field">
-        <label for="name">Short name</label>
-        <input class="input" id="name" type="text" name="name" placeholder="LifeMilestones" required>
-      </div>
-      <button class="btn primary" type="submit" style="width:100%;justify-content:center">
-        + Track mod
-      </button>
-      <p class="hint">First snapshot lands on the next polling cycle.</p>
-    </form>
-  </aside>
+<!-- Inline add row — single visible step to add a mod, no modal needed -->
+<section class="mods-add">
+  <form method="post" action="/admin/mods" class="mods-add-form" autocomplete="off">
+    <div class="mods-add-field">
+      <label for="workshop_id">Workshop ID</label>
+      <input class="input" id="workshop_id" type="number" name="workshop_id"
+             placeholder="e.g. 3721918079" required inputmode="numeric">
+    </div>
+    <div class="mods-add-field">
+      <label for="name">Short slug</label>
+      <input class="input" id="name" type="text" name="name"
+             placeholder="e.g. LifeMilestones" maxlength="64" required>
+    </div>
+    <button class="btn primary mods-add-btn" type="submit">
+      <span>+ Track mod</span>
+    </button>
+  </form>
+  <p class="mods-add-hint">
+    Paste the Workshop URL ID and a short slug. Title, thumbnail, and stats fill in on the next poll cycle (≤30 min).
+  </p>
+</section>
 
-  <section>
-    {% if mods %}
-    <table class="admin-table">
-      <thead>
-        <tr>
-          <th style="width:200px">Workshop ID</th>
-          <th style="width:200px">Slug</th>
-          <th>Title</th>
-          <th style="width:120px"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in mods %}
-        <tr>
-          <td class="col-id">{{ m.id }}</td>
-          <td class="col-name">{{ m.name }}</td>
-          <td class="col-title">{{ m.title or "—" }}</td>
-          <td class="col-actions">
-            <form class="inline-delete" method="post" action="/admin/mods/{{ m.id }}/delete"
-                  onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}? Snapshots and comments will be removed.');">
-              <button type="submit">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="admin-empty">No mods tracked yet — add one on the left</div>
-    {% endif %}
-  </section>
+<!-- Mod cards instead of a dense table -->
+{% if mods %}
+<div class="admin-mod-list">
+  {% for m in mods %}
+  <article class="admin-mod-row">
+    <a href="/mod/{{ m.id }}" class="admin-mod-thumb">
+      {% if m.thumbnail_url %}
+        <img src="{{ m.thumbnail_url }}" alt="" loading="lazy">
+      {% else %}
+        <span class="admin-mod-thumb-placeholder">{{ m.name[0]|upper }}</span>
+      {% endif %}
+    </a>
+
+    <div class="admin-mod-info">
+      <h3 class="admin-mod-name">
+        <a href="/mod/{{ m.id }}">{{ m.title or m.name }}</a>
+      </h3>
+      <div class="admin-mod-meta">
+        <span class="dash-game-pill">{{ m.app_name or "unresolved" }}</span>
+        <span class="admin-mod-slug">{{ m.name }}</span>
+        <span class="admin-mod-id">id {{ m.id }}</span>
+      </div>
+    </div>
+
+    <div class="admin-mod-actions">
+      <a href="/mod/{{ m.id }}" class="btn-row-link">View</a>
+      <a href="{{ m.workshop_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
+      <form method="post" action="/admin/mods/{{ m.id }}/delete"
+            onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}?\n\nSnapshots, comments, discussions, and changelogs will be removed.');">
+        <button type="submit" class="btn-row-danger">Delete</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
 </div>
+{% else %}
+<div class="thread-empty" style="margin-top:var(--s-5)">
+  No mods tracked yet — paste a Workshop ID above to start
+</div>
+{% endif %}
 
 {% endblock %}
