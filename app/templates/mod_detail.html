@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ mod.title or mod.name }} — ModBoard{% endblock %}
+{% block body %}
+<article>
+  {% if mod.thumbnail_url %}<img src="{{ mod.thumbnail_url }}" alt="" style="max-width:320px">{% endif %}
+  <h1>{{ mod.title or mod.name }}</h1>
+  <p><a href="{{ mod.workshop_url }}" target="_blank" rel="noopener">View on Steam Workshop</a></p>
+  {% if snap %}
+    <ul>
+      <li>Unique Visitors: {{ snap.visitors_display or 0 }}</li>
+      <li>Current Subscribers: {{ snap.subscribers_display or 0 }}</li>
+      <li>Current Favorites: {{ snap.favorites_display or 0 }}</li>
+      <li>Comments: {{ snap.comments_count or 0 }}</li>
+      <li>Last updated on Steam:
+        {{ snap.last_updated.strftime("%Y-%m-%d") if snap.last_updated else "—" }}
+      </li>
+    </ul>
+  {% endif %}
+  <p><a href="/mod/{{ mod.id }}/stats">Growth chart →</a></p>
+</article>
+{% endblock %}

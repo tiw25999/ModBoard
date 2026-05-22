@@ -28,3 +28,16 @@ async def index(request: Request, session: AsyncSession = Depends(get_db)):
     ).scalars().all()
     rows = [{"mod": m, "snap": await _latest_snapshot(session, m.id)} for m in mods]
     return templates.TemplateResponse(request, "mod_list.html", {"mods": rows})
+
+
+@router.get("/mod/{mod_id}", response_class=HTMLResponse)
+async def mod_detail(
+    request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
+):
+    mod = await session.get(Mod, mod_id)
+    if mod is None or not mod.public:
+        raise HTTPException(404)
+    snap = await _latest_snapshot(session, mod_id)
+    return templates.TemplateResponse(
+        request, "mod_detail.html", {"mod": mod, "snap": snap}
+    )
