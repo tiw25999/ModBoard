@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.title }} — Forum — ModBoard{% endblock %}
+{% block body %}
+
+<a href="/forum" class="back-link">← back to forum</a>
+
+<article class="thread-head-card">
+  <div class="thread-vote thread-vote-lg">
+    <form method="post" action="/forum/{{ thread.id }}/upvote">
+      <button type="submit" class="upvote-btn {% if has_voted %}voted{% endif %}" title="{% if has_voted %}Remove upvote{% else %}Upvote{% endif %}">
+        <span class="arrow">▲</span>
+        <span class="n">{{ thread.upvotes }}</span>
+      </button>
+    </form>
+  </div>
+
+  <div class="thread-head-body">
+    <h1 class="thread-page-title">
+      {% if thread.pinned %}<span class="pin-icon">📌</span>{% endif %}
+      {{ thread.title }}
+    </h1>
+    <div class="thread-tags">
+      <span class="kind kind-{{ thread.kind }}">{{ thread.kind }}</span>
+      <span class="status status-{{ thread.status }}">{{ thread.status }}</span>
+      {% if thread.mod %}
+        <span class="mod-link">about <a href="/mod/{{ thread.mod.id }}">{{ thread.mod.title or thread.mod.name }}</a></span>
+      {% endif %}
+      {% if thread.locked %}<span class="locked-flag">🔒 locked</span>{% endif %}
+    </div>
+    <div class="thread-meta">
+      opened by <b>{{ thread.author_name }}</b>
+      · {{ thread.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
+    </div>
+
+    <div class="forum-body">{{ thread.body_html|safe }}</div>
+
+    <div class="thread-actions-row">
+      {% if is_owner or is_admin %}
+        <form method="post" action="/forum/{{ thread.id }}/delete" onsubmit="return confirm('Delete this thread and all replies?');" style="display:inline">
+          <button type="submit" class="btn-danger-link">Delete thread</button>
+        </form>
+      {% endif %}
+      {% if is_admin %}
+        <form method="post" action="/forum/{{ thread.id }}/pin" style="display:inline">
+          <button type="submit" class="btn-admin-link">{{ "Unpin" if thread.pinned else "Pin" }}</button>
+        </form>
+        <form method="post" action="/forum/{{ thread.id }}/lock" style="display:inline">
+          <button type="submit" class="btn-admin-link">{{ "Unlock" if thread.locked else "Lock" }}</button>
+        </form>
+        <form method="post" action="/forum/{{ thread.id }}/status" style="display:inline-flex;gap:6px;align-items:center">
+          <select name="status" class="input-small">
+            {% for s in statuses %}<option value="{{ s }}" {% if s == thread.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn-admin-link">Set</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</article>
+
+<section class="forum-replies">
+  <div class="section-head">
+    <span class="eyebrow">Replies</span>
+    <span class="section-meta">{{ posts|length }} repl{{ "y" if posts|length == 1 else "ies" }}</span>
+  </div>
+
+  {% if posts %}
+  <ol class="reply-list">
+    {% for p in posts %}
+    <li class="reply" id="post-{{ p.id }}">
+      <div class="reply-meta">
+        <span class="reply-author"><b>{{ p.author_name }}</b></span>
+        <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+      </div>
+      <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="thread-empty">No replies yet</div>
+  {% endif %}
+</section>
+
+{% if not thread.locked %}
+<section class="reply-composer">
+  <div class="section-head">
+    <span class="eyebrow">Add reply</span>
+    <span class="section-meta">supports **bold**, *italic*, &gt; quote</span>
+  </div>
+  <form method="post" action="/forum/{{ thread.id }}/reply" class="forum-form">
+    <input type="text" name="website" tabindex="-1" autocomplete="off"
+           style="position:absolute;left:-9999px" aria-hidden="true">
+    <div class="field">
+      <label>Your name</label>
+      <input class="input" type="text" name="author_name" maxlength="64" required>
+    </div>
+    <div class="field">
+      <label>Reply</label>
+      <textarea class="input" name="body" rows="5" required minlength="10"></textarea>
+    </div>
+    <button type="submit" class="btn primary">Post reply</button>
+  </form>
+</section>
+{% else %}
+<div class="thread-empty">🔒 Thread is locked — no new replies</div>
+{% endif %}
+
+{% endblock %}
