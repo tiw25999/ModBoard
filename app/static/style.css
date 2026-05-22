@@ -240,8 +240,23 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   background: linear-gradient(180deg, var(--ink-1), #0b0d11);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
+  cursor: pointer;
   transition: border-color .18s ease, transform .18s ease, background .18s ease;
 }
+
+/* whole-row click target — stretched link on the title anchor */
+.modlist .title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* keep thumbnail + metrics above the stretched link so they stay interactive
+   (hover effects still trigger; thumb is a separate <a> to same target) */
+.modlist a.thumb,
+.modlist .metrics { position: relative; z-index: 2; }
 
 .modlist li::before {
   content: "";
