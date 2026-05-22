@@ -49,7 +49,9 @@ services:
       RUN_POLLER: "false"
 
   caddy:
-    image: caddy:2-alpine
+    # Digest-pinned for supply-chain reproducibility. Bump via:
+    #   docker buildx imagetools inspect caddy:2-alpine
+    image: caddy:2-alpine@sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -73,7 +75,7 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:df7bca0066e6f60cc3dd32faa70caddec20e2c22b58932f79498e5704b23854a
     env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -86,7 +88,10 @@ services:
     networks: [backend]
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # Pinned to a specific tag digest so a poisoned :latest push can't
+    # silently land on the server. Bump deliberately via:
+    #   docker buildx imagetools inspect cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:59bab8d3aceec09bf6bdb07d6beca0225ca5cd7ab79436a87ea97978fe1dc4f9
     command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
     # No env_file — cloudflared only needs the token, which is passed
     # explicitly. Avoids leaking SESSION_SECRET / GOOGLE_CLIENT_SECRET
@@ -99,7 +104,7 @@ services:
     networks: [edge]
 
   db-backup:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:df7bca0066e6f60cc3dd32faa70caddec20e2c22b58932f79498e5704b23854a
     volumes:
       - ./backups:/backups
     # Same scoping rationale — db-backup only needs Postgres creds.

@@ -14,6 +14,7 @@
     <a href="/auth/me" class="btn">← Profile</a>
     {% if notes %}
     <form method="post" action="/auth/me/notifications/clear" onsubmit="return confirm('Delete all notifications?');">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <button type="submit" class="btn">Clear all</button>
     </form>
     {% endif %}

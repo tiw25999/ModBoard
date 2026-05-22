@@ -16,6 +16,7 @@
 <!-- Inline add row — single visible step to add a mod, no modal needed -->
 <section class="mods-add">
   <form method="post" action="/admin/mods" class="mods-add-form" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
     <div class="mods-add-field">
       <label for="workshop_id">Workshop ID</label>
       <input class="input" id="workshop_id" type="number" name="workshop_id"
@@ -65,6 +66,7 @@
       <a href="{{ m.workshop_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
       <form method="post" action="/admin/mods/{{ m.id }}/delete"
             onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}?\n\nSnapshots, comments, discussions, and changelogs will be removed.');">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <button type="submit" class="btn-row-danger">Delete</button>
       </form>
     </div>

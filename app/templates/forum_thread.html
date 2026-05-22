@@ -27,6 +27,7 @@
 <article class="thread-head-card">
   <div class="thread-vote thread-vote-lg">
     <form method="post" action="/forum/{{ thread.id }}/upvote">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <button type="submit" class="upvote-btn {% if has_voted %}voted{% endif %}" title="{% if has_voted %}Remove upvote{% else %}Upvote{% endif %}">
         <span class="arrow">▲</span>
         <span class="n">{{ thread.upvotes }}</span>
@@ -60,6 +61,7 @@
     <div class="reaction-bar">
       {% for e in reaction_emojis %}
       <form method="post" action="/forum/react" class="reaction-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <input type="hidden" name="emoji" value="{{ e }}">
         <input type="hidden" name="thread_id" value="{{ thread.id }}">
         <button type="submit" class="reaction-btn {% if e in tmine %}is-mine{% endif %} {% if tcounts.get(e) %}has-count{% endif %}">
@@ -78,17 +80,21 @@
       {% if is_owner or is_admin %}
         <a href="/forum/{{ thread.id }}/edit" class="btn-admin-link">Edit thread</a>
         <form method="post" action="/forum/{{ thread.id }}/delete" onsubmit="return confirm('Delete this thread and all replies?');" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <button type="submit" class="btn-danger-link">Delete thread</button>
         </form>
       {% endif %}
       {% if is_admin %}
         <form method="post" action="/forum/{{ thread.id }}/pin" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <button type="submit" class="btn-admin-link">{{ "Unpin" if thread.pinned else "Pin" }}</button>
         </form>
         <form method="post" action="/forum/{{ thread.id }}/lock" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <button type="submit" class="btn-admin-link">{{ "Unlock" if thread.locked else "Lock" }}</button>
         </form>
         <form method="post" action="/forum/{{ thread.id }}/status" style="display:inline-flex;gap:6px;align-items:center">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <select name="status" class="input-small">
             {% for s in statuses %}<option value="{{ s }}" {% if s == thread.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
           </select>
@@ -126,6 +132,7 @@
       <div class="reaction-bar">
         {% for e in reaction_emojis %}
         <form method="post" action="/forum/react" class="reaction-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <input type="hidden" name="emoji" value="{{ e }}">
           <input type="hidden" name="post_id" value="{{ p.id }}">
           <button type="submit" class="reaction-btn {% if e in pmine %}is-mine{% endif %} {% if pcounts.get(e) %}has-count{% endif %}">
@@ -150,6 +157,7 @@
     <span class="section-meta">supports **bold**, *italic*, &gt; quote</span>
   </div>
   <form method="post" action="/forum/{{ thread.id }}/reply" class="forum-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
     <input type="text" name="website" tabindex="-1" autocomplete="off"
            style="position:absolute;left:-9999px" aria-hidden="true">
     {% set me = request.state.user %}

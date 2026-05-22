@@ -18,6 +18,7 @@
   </div>
   <div class="admin-hero-actions">
     <form method="post" action="/admin/poll-now">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <button type="submit" class="btn primary"><span>↻ Poll now</span></button>
     </form>
     <a href="/admin/mods" class="btn">Mods →</a>

@@ -57,6 +57,7 @@
       </p>
     </div>
     <form method="post" action="/auth/admin/login" class="forum-form" style="margin-top:var(--s-4);background:transparent;border:none;padding:0">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <input type="hidden" name="next" value="{{ next }}">
       <div class="field">
         <label for="username">Username</label>

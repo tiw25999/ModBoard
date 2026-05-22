@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.config import settings as _settings
 from app.db import SessionLocal
 from app.services.bbcode import safe_url
+from app.services.csrf import csrf_middleware
 from app.routes import admin as admin_routes
 from app.routes import auth as auth_routes
 from app.routes import forum as forum_routes
@@ -21,7 +22,7 @@ from app.routes import feeds as feeds_routes
 from app.routes import seo as seo_routes
 from app.services.auth import is_admin as _is_admin_cookie
 from app.services.poller import poller_task
-from app.services.session import session_user_id
+from app.services.session import parse_session
 
 _error_templates = Jinja2Templates(directory="app/templates")
 
@@ -130,6 +131,13 @@ async def limit_request_size(request: Request, call_next):
     return await call_next(request)
 
 
+# CSRF must run AFTER body-size middleware (no point parsing CSRF on
+# a 2GB body) but BEFORE the route handler. Registered here so the
+# decorator order — outermost first, innermost last — places it
+# between security_headers and admin_gate.
+app.middleware("http")(csrf_middleware)
+
+
 @app.middleware("http")
 async def admin_gate(request: Request, call_next):
     """Anything under /admin/* requires the signed mb_admin cookie set by
@@ -159,13 +167,17 @@ async def attach_current_user(request: Request, call_next):
     path = request.url.path
     if path.startswith("/static") or path == "/health":
         return await call_next(request)
-    uid = session_user_id(request)
-    if uid is not None:
+    parsed = parse_session(request)
+    if parsed is not None:
+        uid, jti = parsed
         from sqlalchemy import func, select as _select
         from app.models import Notification, User
         async with SessionLocal() as db:
             user = await db.get(User, uid)
-            if user is not None:
+            # Reject the session if the user's jti has rotated (logout,
+            # password change, "log out everywhere") — even though the
+            # signed cookie is still cryptographically valid.
+            if user is not None and user.session_jti and user.session_jti == jti:
                 request.state.user = {
                     "id": user.id,
                     "name": user.name,

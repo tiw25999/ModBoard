@@ -95,6 +95,7 @@
       {% if me or is_admin %}
         {# POST-only so a malicious page can't log the user out via <a href> CSRF #}
         <form method="post" action="/auth/logout" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <button type="submit" class="nav-link nav-exit" title="Sign out of all sessions"
                   style="background:none;border:none;font:inherit;cursor:pointer;padding:0">Logout</button>
         </form>
@@ -123,6 +124,35 @@
         navigator.serviceWorker.register("/static/sw.js").catch(() => {})
       );
     }
+
+    /* Override the browser's native form-validation tooltip text so all
+       users see English regardless of OS / browser locale. Without this,
+       Thai/JP/etc. Chrome shows "โปรดกรอกฟิลด์นี้" / "このフィールドを入力してください". */
+    (function () {
+      function msgFor(el) {
+        var v = el.validity;
+        if (v.valueMissing)     return "Please fill out this field.";
+        if (v.typeMismatch)     return "Please enter a valid " + (el.type || "value") + ".";
+        if (v.tooShort)         return "Please use at least " + el.minLength + " characters (currently " + el.value.length + ").";
+        if (v.tooLong)          return "Please use at most " + el.maxLength + " characters.";
+        if (v.rangeUnderflow)   return "Value must be " + el.min + " or more.";
+        if (v.rangeOverflow)    return "Value must be " + el.max + " or less.";
+        if (v.stepMismatch)     return "Please enter a valid value.";
+        if (v.patternMismatch)  return el.title || "Please match the requested format.";
+        if (v.badInput)         return "Please enter a valid value.";
+        return "";
+      }
+      document.addEventListener("invalid", function (e) {
+        if (e.target && e.target.setCustomValidity) {
+          e.target.setCustomValidity(msgFor(e.target));
+        }
+      }, true);
+      document.addEventListener("input", function (e) {
+        if (e.target && e.target.setCustomValidity) {
+          e.target.setCustomValidity("");
+        }
+      }, true);
+    })();
   </script>
 </body>
 </html>

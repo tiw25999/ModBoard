@@ -16,6 +16,7 @@
 <section class="mods-add">
   <h3 style="margin:0 0 var(--s-3);font-family:var(--f-mono);font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:var(--fg-2)">Create new post</h3>
   <form method="post" action="/admin/news" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
     <div class="form-grid">
       <div class="field" style="grid-column: span 2">
         <label for="title">Title</label>
@@ -50,6 +51,7 @@
   {% for p in posts %}
   <article class="admin-roadmap-row">
     <form method="post" action="/admin/news/{{ p.id }}/update" class="admin-roadmap-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <div class="form-grid">
         <div class="field" style="grid-column: span 2">
           <label>Title <span style="color:var(--fg-3)">· {{ p.created_at.strftime("%b %d, %Y") }}</span></label>
@@ -82,6 +84,7 @@
     <div class="admin-roadmap-meta">
       <form method="post" action="/admin/news/{{ p.id }}/delete" style="display:inline"
             onsubmit="return confirm('Delete this news post?');">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <button type="submit" class="btn-row-danger">Delete</button>
       </form>
     </div>

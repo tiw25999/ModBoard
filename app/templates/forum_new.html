@@ -16,6 +16,7 @@
 {% endif %}
 
 <form method="post" action="/forum/new" class="forum-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
   <input type="text" name="website" tabindex="-1" autocomplete="off"
          style="position:absolute;left:-9999px" aria-hidden="true">
 

@@ -34,6 +34,7 @@
   {% for t in threads %}
   <li class="thread-row {% if t.pinned %}pinned{% endif %} {% if t.locked %}locked{% endif %} status-{{ t.status }}">
     <form class="thread-vote" method="post" action="/forum/{{ t.id }}/upvote">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <button type="submit" class="upvote-btn" title="Upvote">
         <span class="arrow">▲</span>
         <span class="n">{{ t.upvotes }}</span>

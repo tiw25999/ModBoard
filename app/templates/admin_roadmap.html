@@ -16,6 +16,7 @@
 
 <section class="mods-add">
   <form method="post" action="/admin/mods/{{ mod.id }}/roadmap" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
     <div class="form-grid">
       <div class="field">
         <label for="title">Title</label>
@@ -45,6 +46,7 @@
   {% for it in items %}
   <article class="admin-roadmap-row">
     <form method="post" action="/admin/roadmap/{{ it.id }}/update" class="admin-roadmap-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
       <div class="form-grid">
         <div class="field" style="grid-column: span 2">
           <label>Title</label>
@@ -70,15 +72,18 @@
 
     <div class="admin-roadmap-meta">
       <form method="post" action="/admin/roadmap/{{ it.id }}/move" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <input type="hidden" name="direction" value="up">
         <button type="submit" class="btn-row-link" title="Move up">▲</button>
       </form>
       <form method="post" action="/admin/roadmap/{{ it.id }}/move" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <input type="hidden" name="direction" value="down">
         <button type="submit" class="btn-row-link" title="Move down">▼</button>
       </form>
       <form method="post" action="/admin/roadmap/{{ it.id }}/delete" style="display:inline"
             onsubmit="return confirm('Delete: {{ it.title|e }}?');">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <button type="submit" class="btn-row-danger">Delete</button>
       </form>
     </div>

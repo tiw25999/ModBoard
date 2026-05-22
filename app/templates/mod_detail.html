@@ -32,6 +32,7 @@
     {% endif %}
     <div class="actions">
       <form method="post" action="/mod/{{ mod.id }}/subscribe" style="margin:0">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
         <button type="submit" class="btn {% if is_subscribed %}btn-following{% else %}primary{% endif %}">
           {% if is_subscribed %}
             <span>✓ Following</span><span class="arrow">{{ sub_count }}</span>

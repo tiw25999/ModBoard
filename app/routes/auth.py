@@ -1,6 +1,7 @@
 """Auth routes — unified /auth/login (Google + admin form), profile, logout."""
 from __future__ import annotations
 
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
@@ -22,17 +23,21 @@ from app.services.auth import (
 )
 from app.services.oauth_google import (
     OAUTH_NEXT_COOKIE,
+    OAUTH_PKCE_COOKIE,
     OAUTH_STATE_COOKIE,
     authorize_url,
     exchange_code,
     fetch_userinfo,
+    make_pkce_verifier,
     make_state,
+    pkce_challenge,
 )
+from app.services.ratelimit import check_and_record, client_ip, reset as _rl_reset
 from app.services.session import (
     SESSION_MAX_AGE,
     clear_session,
     current_user,
-    session_user_id,
+    parse_session,
     set_session,
 )
 
@@ -80,11 +85,22 @@ async def admin_login_submit(
     password: str = Form(...),
     next: str = Form("/admin"),
 ):
+    # Per-IP token bucket — 5 attempts / 15 min. Defence in depth
+    # behind Cloudflare's per-minute rule for when CF gets bypassed.
+    ip = client_ip(request)
+    if not check_and_record(f"admin_login:{ip}"):
+        return RedirectResponse(
+            f"/auth/login?error=Too+many+attempts.+Try+again+in+15+min.&next={_safe_next(next)}",
+            status_code=303,
+        )
     if not verify_admin_credentials(username.strip(), password):
         return RedirectResponse(
             f"/auth/login?error=Invalid+admin+credentials&next={_safe_next(next)}",
             status_code=303,
         )
+    # Successful login → clear the failure counter so a future typo
+    # doesn't lock the admin out.
+    _rl_reset(f"admin_login:{ip}")
     response = RedirectResponse(_safe_next(next), status_code=303)
     set_admin_session(response)
     return response
@@ -105,9 +121,20 @@ async def google_login(request: Request, next: str = "/"):
     if not settings.google_oauth_enabled:
         raise HTTPException(503, detail="Google login is not configured")
     state = make_state()
-    response = RedirectResponse(authorize_url(state), status_code=302)
+    verifier = make_pkce_verifier()
+    challenge = pkce_challenge(verifier)
+    response = RedirectResponse(authorize_url(state, code_challenge=challenge), status_code=302)
     response.set_cookie(
         OAUTH_STATE_COOKIE, state, max_age=600,
+        httponly=True, samesite="lax", secure=settings.secure_cookies,
+    )
+    # PKCE verifier lives in a short-lived HttpOnly cookie. Callback
+    # reads it and sends it to Google's token endpoint, which checks
+    # SHA256(verifier) == challenge. Stops an attacker who intercepts
+    # the auth code (browser extension, redirect leak) from
+    # exchanging it without also stealing this cookie.
+    response.set_cookie(
+        OAUTH_PKCE_COOKIE, verifier, max_age=600,
         httponly=True, samesite="lax", secure=settings.secure_cookies,
     )
     # Preserve where to land after login (relative URL only — never trust
@@ -139,8 +166,12 @@ async def google_callback(
     if not expected_state or expected_state != state:
         raise HTTPException(400, detail="State mismatch — possible CSRF, try again")
 
+    pkce_verifier = request.cookies.get(OAUTH_PKCE_COOKIE)
+    if not pkce_verifier:
+        raise HTTPException(400, detail="Missing PKCE verifier — start login again")
+
     try:
-        token_resp = await exchange_code(code)
+        token_resp = await exchange_code(code, code_verifier=pkce_verifier)
     except Exception as e:
         raise HTTPException(502, detail=f"Token exchange failed: {e}")
     access_token = token_resp.get("access_token")
@@ -211,18 +242,36 @@ async def google_callback(
     if not next_path.startswith("/") or next_path.startswith("//"):
         next_path = "/"
 
+    # Rotate the per-user session token on every successful login
+    # (defends against session fixation: a pre-planted cookie value
+    # becomes invalid the moment its target logs in).
+    user.session_jti = secrets.token_urlsafe(16)
+    await session.commit()
+
     response = RedirectResponse(next_path, status_code=303)
-    set_session(response, user.id)
+    set_session(response, user.id, user.session_jti)
     response.delete_cookie(OAUTH_STATE_COOKIE, samesite="lax")
     response.delete_cookie(OAUTH_NEXT_COOKIE, samesite="lax")
+    response.delete_cookie(OAUTH_PKCE_COOKIE, samesite="lax")
     return response
 
 
 @router.post("/logout")
-async def logout():
-    """Single Logout endpoint that clears both the user session cookie
-    and the admin session cookie. Used by the nav Logout link regardless
-    of which identity(ies) are signed in."""
+async def logout(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Logout — clears both the user session cookie and the admin
+    session cookie, AND nulls out user.session_jti so an exfiltrated
+    cookie copy stops working server-side (client deletion alone
+    cannot revoke what an attacker already stole)."""
+    parsed = parse_session(request)
+    if parsed is not None:
+        uid, _ = parsed
+        user = await session.get(User, uid)
+        if user is not None:
+            user.session_jti = None
+            await session.commit()
     response = RedirectResponse("/", status_code=303)
     clear_session(response)
     clear_admin_session(response)

@@ -20,6 +20,7 @@
 <form method="post"
       action="{% if kind == 'thread' %}/forum/{{ thread.id }}/edit{% else %}/forum/post/{{ post.id }}/edit{% endif %}"
       class="forum-form">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
   {% if kind == 'thread' %}
   <div class="field">
     <label for="title">Title</label>

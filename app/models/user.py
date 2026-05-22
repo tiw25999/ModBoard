@@ -25,3 +25,12 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    # Per-session ID — minted on every successful login. Embedded in
+    # the signed session cookie alongside the user_id; the middleware
+    # rejects any cookie whose jti doesn't match the current row.
+    # That gives us:
+    #   - session fixation defence (pre-planted cookies invalidate on login)
+    #   - logout invalidates the cookie server-side (not just client-side)
+    #   - "log out everywhere" by setting this back to None
+    session_jti: Mapped[str | None] = mapped_column(String(32))

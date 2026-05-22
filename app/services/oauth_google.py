@@ -10,6 +10,8 @@ Flow:
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import secrets
 from typing import TypedDict
 
@@ -23,6 +25,7 @@ USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
 OAUTH_STATE_COOKIE = "mb_oauth_state"
 OAUTH_NEXT_COOKIE = "mb_oauth_next"
+OAUTH_PKCE_COOKIE = "mb_oauth_pkce"
 
 
 class GoogleUserInfo(TypedDict, total=False):
@@ -40,7 +43,19 @@ def make_state() -> str:
     return secrets.token_urlsafe(24)
 
 
-def authorize_url(state: str) -> str:
+def make_pkce_verifier() -> str:
+    """PKCE code_verifier — 64 bytes urlsafe, exceeds RFC 7636 spec
+    minimum of 43 chars and well under the 128 cap."""
+    return secrets.token_urlsafe(64)
+
+
+def pkce_challenge(verifier: str) -> str:
+    """S256 code_challenge: base64url(sha256(verifier)), no padding."""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
+def authorize_url(state: str, code_challenge: str | None = None) -> str:
     from urllib.parse import urlencode
     params = {
         "client_id": settings.google_client_id,
@@ -51,20 +66,30 @@ def authorize_url(state: str) -> str:
         "access_type": "online",
         "prompt": "select_account",
     }
+    if code_challenge:
+        # PKCE — even though we're a confidential client with a
+        # client_secret, PKCE shuts down the authorization-code-
+        # interception family of attacks (malicious browser
+        # extension reading the redirect, etc.) for free.
+        params["code_challenge"] = code_challenge
+        params["code_challenge_method"] = "S256"
     return f"{AUTH_URL}?{urlencode(params)}"
 
 
-async def exchange_code(code: str) -> dict:
+async def exchange_code(code: str, code_verifier: str | None = None) -> dict:
+    data: dict[str, str] = {
+        "code": code,
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "redirect_uri": settings.google_redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    if code_verifier:
+        data["code_verifier"] = code_verifier
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.post(
             TOKEN_URL,
-            data={
-                "code": code,
-                "client_id": settings.google_client_id,
-                "client_secret": settings.google_client_secret,
-                "redirect_uri": settings.google_redirect_uri,
-                "grant_type": "authorization_code",
-            },
+            data=data,
             headers={"Accept": "application/json"},
         )
         r.raise_for_status()
