@@ -2,6 +2,24 @@
 {% block title %}{{ thread.title }} — Forum — ModBoard{% endblock %}
 {% block description %}{{ thread.body_raw|truncate(200) }}{% endblock %}
 {% block og_type %}article{% endblock %}
+{% block extra_head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "DiscussionForumPosting",
+  "headline": {{ thread.title|tojson }},
+  "articleBody": {{ thread.body_raw|truncate(500)|tojson }},
+  "datePublished": {{ thread.created_at.isoformat()|tojson }},
+  {% if thread.edited_at %}"dateModified": {{ thread.edited_at.isoformat()|tojson }},{% endif %}
+  "author": {"@type": "Person", "name": {{ thread.author_name|tojson }}},
+  "interactionStatistic": [
+    {"@type": "InteractionCounter", "interactionType": "https://schema.org/LikeAction", "userInteractionCount": {{ thread.upvotes }}},
+    {"@type": "InteractionCounter", "interactionType": "https://schema.org/CommentAction", "userInteractionCount": {{ posts|length }}}
+  ],
+  "url": {{ ('https://' ~ request.url.netloc ~ '/forum/' ~ thread.id ~ '/' ~ thread.slug)|tojson }}
+}
+</script>
+{% endblock %}
 {% block body %}
 
 <a href="/forum" class="back-link">← back to forum</a>

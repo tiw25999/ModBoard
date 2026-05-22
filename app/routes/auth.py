@@ -227,18 +227,10 @@ async def my_notifications(
 ):
     """Inbox page. Marks everything read on view — typical "go look at it"
     semantics. (Could split into "unread / all" tabs later if needed.)"""
-    from datetime import datetime, timezone
-
     user = await current_user(request, session)
     if user is None:
         return RedirectResponse("/auth/login?next=/auth/me/notifications", status_code=303)
 
-    notes_q = (
-        select(Notification)
-        .options(selectinload(Notification.thread).selectinload(ForumThread.mod))
-        if False
-        else select(Notification)  # selectinload of FK to ForumThread done below
-    )
     notes = (
         await session.execute(
             select(Notification)
@@ -248,7 +240,6 @@ async def my_notifications(
         )
     ).scalars().all()
 
-    # Eager-fetch related threads + mods for display
     thread_ids = {n.thread_id for n in notes if n.thread_id}
     threads = {}
     if thread_ids:

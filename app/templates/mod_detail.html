@@ -14,7 +14,7 @@
   {% if mod.app_name %}"isPartOf": {"@type": "VideoGame", "name": {{ mod.app_name|tojson }}},{% endif %}
   {% if mod.thumbnail_url %}"image": {{ mod.thumbnail_url|tojson }},{% endif %}
   {% if mod.description %}"description": {{ mod.description|striptags|truncate(300)|tojson }},{% endif %}
-  "url": {{ ('http://' ~ request.url.netloc ~ '/mod/' ~ mod.id)|tojson }}
+  "url": {{ ('https://' ~ request.url.netloc ~ '/mod/' ~ mod.id)|tojson }}
 }
 </script>
 {% endblock %}

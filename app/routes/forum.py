@@ -726,6 +726,15 @@ async def forum_toggle_lock(
     thread = await session.get(ForumThread, thread_id)
     if thread is None:
         raise HTTPException(404)
+    was_locked = thread.locked
     thread.locked = not thread.locked
+    if thread.locked and not was_locked and thread.author_user_id:
+        session.add(Notification(
+            user_id=thread.author_user_id,
+            kind="thread_locked",
+            thread_id=thread.id,
+            actor_name=DEVELOPER_LABEL,
+            created_at=datetime.now(timezone.utc),
+        ))
     await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
