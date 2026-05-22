@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e1014"/>
+      <stop offset="100%" stop-color="#06070a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="85%" cy="20%" r="40%">
+      <stop offset="0%" stop-color="#ffb547" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(80,80)">
+    <circle cx="0" cy="0" r="10" fill="#ffb547"/>
+    <text x="30" y="8" fill="#f1e7d3" font-size="22" font-weight="700" letter-spacing="6" font-family="ui-monospace,monospace">MODBOARD</text>
+  </g>
+  <text x="80" y="320" fill="#f1e7d3" font-size="84" font-weight="600" letter-spacing="-2">
+    Workshop telemetry
+  </text>
+  <text x="80" y="410" fill="#c9c0ad" font-size="44" font-style="italic" font-family="Georgia,serif">
+    for fans &amp; modders
+  </text>
+  <text x="80" y="540" fill="#7e7867" font-size="22" letter-spacing="3" font-family="ui-monospace,monospace">
+    LIVE STATS · DISCUSSIONS · CHANGELOGS · FORUM
+  </text>
+  <text x="80" y="580" fill="#555044" font-size="16" letter-spacing="2" font-family="ui-monospace,monospace">
+    self-hosted · ad-free · open source
+  </text>
+</svg>

@@ -1,6 +1,23 @@
 {% extends "base.html" %}
 {% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
 {% block title %}{{ mod.title or mod.name }} — ModBoard{% endblock %}
+{% block description %}{% if mod.description %}{{ mod.description|striptags|truncate(200) }}{% else %}{{ mod.title or mod.name }} on Steam Workshop — stats, comments, and changelog tracked by ModBoard.{% endif %}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_image %}{% if mod.thumbnail_url %}{{ mod.thumbnail_url }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block extra_head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": {{ (mod.title or mod.name)|tojson }},
+  "applicationCategory": "GameMod",
+  {% if mod.app_name %}"isPartOf": {"@type": "VideoGame", "name": {{ mod.app_name|tojson }}},{% endif %}
+  {% if mod.thumbnail_url %}"image": {{ mod.thumbnail_url|tojson }},{% endif %}
+  {% if mod.description %}"description": {{ mod.description|striptags|truncate(300)|tojson }},{% endif %}
+  "url": {{ ('http://' ~ request.url.netloc ~ '/mod/' ~ mod.id)|tojson }}
+}
+</script>
+{% endblock %}
 {% block body %}
 
 {{ mod_pageheader(mod) }}

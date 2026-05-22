@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ thread.title }} — Forum — ModBoard{% endblock %}
+{% block description %}{{ thread.body_raw|truncate(200) }}{% endblock %}
+{% block og_type %}article{% endblock %}
 {% block body %}
 
 <a href="/forum" class="back-link">← back to forum</a>
