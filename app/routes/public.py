@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import Mod, ModSnapshot
+from app.models import Mod, ModComment, ModSnapshot
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -38,8 +38,17 @@ async def mod_detail(
     if mod is None or not mod.public:
         raise HTTPException(404)
     snap = await _latest_snapshot(session, mod_id)
+    comments = (
+        await session.execute(
+            select(ModComment)
+            .where(ModComment.mod_id == mod_id)
+            .order_by(ModComment.posted_at.desc().nulls_last())
+            .limit(50)
+        )
+    ).scalars().all()
     return templates.TemplateResponse(
-        request, "mod_detail.html", {"mod": mod, "snap": snap}
+        request, "mod_detail.html",
+        {"mod": mod, "snap": snap, "comments": comments},
     )
 
 

@@ -3,12 +3,13 @@ import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Mod, ModSnapshot
+from app.models import Mod, ModComment, ModSnapshot
 from app.services.steam_api import get_published_file_details
-from app.services.workshop_scrape import fetch_comment_total, scrape_display_labels
+from app.services.workshop_scrape import fetch_comments, scrape_display_labels
 
 log = logging.getLogger(__name__)
 
@@ -29,10 +30,37 @@ async def poll_once() -> None:
                 log.warning("scrape failed for %s: %s", mod.id, e)
                 labels = {"visitors": None, "subscribers": None, "favorites": None}
             try:
-                comments = await fetch_comment_total(mod.id, settings.steam_creator_id)
+                comments_total, scraped_comments = await fetch_comments(
+                    mod.id, settings.steam_creator_id, count=50
+                )
             except Exception as e:
                 log.warning("comment fetch failed for %s: %s", mod.id, e)
-                comments = None
+                comments_total, scraped_comments = None, []
+            if scraped_comments:
+                now = datetime.now(timezone.utc)
+                stmt = pg_insert(ModComment).values([
+                    {
+                        "mod_id": mod.id,
+                        "comment_id": c["comment_id"],
+                        "author_name": c["author_name"],
+                        "author_profile_url": c["author_profile_url"],
+                        "author_avatar_url": c["author_avatar_url"],
+                        "body_html": c["body_html"],
+                        "posted_at": c["posted_at"],
+                        "scraped_at": now,
+                    }
+                    for c in scraped_comments
+                ])
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["comment_id"],
+                    set_={
+                        "body_html": stmt.excluded.body_html,
+                        "author_name": stmt.excluded.author_name,
+                        "author_avatar_url": stmt.excluded.author_avatar_url,
+                        "scraped_at": stmt.excluded.scraped_at,
+                    },
+                )
+                await session.execute(stmt)
             snap = ModSnapshot(
                 mod_id=mod.id,
                 captured_at=datetime.now(timezone.utc),
@@ -40,7 +68,7 @@ async def poll_once() -> None:
                 lifetime_subs=api.get("lifetime_subscriptions"),
                 favorited=api.get("favorited"),
                 views=api.get("views"),
-                comments_count=comments,
+                comments_count=comments_total,
                 last_updated=(
                     datetime.fromtimestamp(api["time_updated"], tz=timezone.utc)
                     if api.get("time_updated") else None
