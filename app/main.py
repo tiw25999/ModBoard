@@ -182,6 +182,8 @@ async def html_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health() -> dict[str, str]:
+    # UptimeRobot's HTTP monitor defaults to HEAD; Caddy's active
+    # health probe uses GET. Accept both so neither sees 405.
     return {"status": "ok"}
