@@ -1,0 +1,50 @@
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db import Base
+
+
+class Mod(Base):
+    __tablename__ = "mods"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)  # Steam workshop file id
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(256))
+    description: Mapped[str | None] = mapped_column(Text)
+    workshop_url: Mapped[str | None] = mapped_column(Text)
+    github_url: Mapped[str | None] = mapped_column(Text)
+    thumbnail_url: Mapped[str | None] = mapped_column(Text)
+    public: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    snapshots: Mapped[list["ModSnapshot"]] = relationship(
+        back_populates="mod", cascade="all, delete-orphan"
+    )
+
+
+class ModSnapshot(Base):
+    __tablename__ = "mod_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    mod_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("mods.id", ondelete="CASCADE"))
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    # raw API fields (names mirror Steam's response; misleading vs displayed labels)
+    subscriptions: Mapped[int | None] = mapped_column(Integer)
+    lifetime_subs: Mapped[int | None] = mapped_column(Integer)
+    favorited: Mapped[int | None] = mapped_column(Integer)
+    views: Mapped[int | None] = mapped_column(Integer)
+
+    # AJAX endpoint
+    comments_count: Mapped[int | None] = mapped_column(Integer)
+
+    # HTML-scraped values — canonical for display, match what users see on Steam
+    visitors_display: Mapped[int | None] = mapped_column(Integer)
+    subscribers_display: Mapped[int | None] = mapped_column(Integer)
+    favorites_display: Mapped[int | None] = mapped_column(Integer)
+
+    last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    mod: Mapped[Mod] = relationship(back_populates="snapshots")

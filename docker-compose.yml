@@ -1,0 +1,47 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    env_file: .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+    env_file: .env
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  db-backup:
+    image: postgres:15-alpine
+    env_file: .env
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h db -U $$POSTGRES_USER --format=custom $$POSTGRES_DB
+          > /backups/modboard_$$(date +%F).dump;
+        find /backups -name "modboard_*.dump" -mtime +14 -delete;
+        sleep 86400;
+      done'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
