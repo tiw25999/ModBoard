@@ -1,23 +1,121 @@
 {% extends "base.html" %}
-{% block title %}{{ mod.title or mod.name }} Stats — ModBoard{% endblock %}
+{% block title %}{{ mod.title or mod.name }} · Stats — ModBoard{% endblock %}
 {% block body %}
-<h1>{{ mod.title or mod.name }} · Subscriber growth</h1>
-<p><a href="/mod/{{ mod.id }}">← back to mod</a></p>
-<canvas id="chart" width="900" height="320"></canvas>
+
+<a href="/mod/{{ mod.id }}" class="back" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2);display:inline-flex;align-items:center;gap:8px;margin-bottom:var(--s-4)">
+  ← back to mod
+</a>
+
+<section class="stats-head">
+  <div class="left">
+    <span class="eyebrow">Time Series</span>
+    <h1 style="margin-top:10px">
+      {{ mod.title or mod.name }} <span class="accent">/</span> <span class="serif-accent">subscriber growth</span>
+    </h1>
+  </div>
+  <div class="meta" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2);text-align:right">
+    <div>{{ labels|length }} data points</div>
+    {% if labels|length %}
+      <div style="color:var(--fg-3);margin-top:4px">{{ labels[0] }} → {{ labels[-1] }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<div class="chart-card">
+  <div class="chart-meta">
+    <span class="label">Metric · <b>current subscribers</b></span>
+    <span class="points">{{ labels|length }} samples</span>
+  </div>
+  {% if labels|length %}
+    <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  {% else %}
+    <div class="chart-empty">Awaiting first snapshot</div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if labels|length %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
-new Chart(document.getElementById("chart"), {
-  type: "line",
-  data: {
-    labels: {{ labels|tojson }},
-    datasets: [{
-      label: "Current Subscribers",
-      data: {{ subs|tojson }},
-      tension: 0.2,
-      fill: false,
-    }]
-  },
-  options: { scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 } } } }
-});
+(function () {
+  const ctx = document.getElementById("chart");
+  if (!ctx) return;
+
+  const css = getComputedStyle(document.documentElement);
+  const amber = css.getPropertyValue("--amber").trim() || "#ffb547";
+  const fg2   = css.getPropertyValue("--fg-2").trim() || "#7e7867";
+  const fg3   = css.getPropertyValue("--fg-3").trim() || "#555044";
+  const line  = css.getPropertyValue("--line").trim() || "#242832";
+
+  const gradient = ctx.getContext("2d").createLinearGradient(0, 0, 0, 420);
+  gradient.addColorStop(0, "rgba(255,181,71,0.32)");
+  gradient.addColorStop(1, "rgba(255,181,71,0)");
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: {{ labels|tojson }},
+      datasets: [{
+        label: "Current Subscribers",
+        data: {{ subs|tojson }},
+        borderColor: amber,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: amber,
+        pointHoverBorderColor: "#000",
+        pointHoverBorderWidth: 2,
+        tension: 0.28,
+        fill: true,
+        backgroundColor: gradient,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#0e1014",
+          borderColor: line,
+          borderWidth: 1,
+          titleColor: "#f1e7d3",
+          bodyColor: "#ffb547",
+          titleFont: { family: "JetBrains Mono", size: 11, weight: "500" },
+          bodyFont:  { family: "JetBrains Mono", size: 13, weight: "500" },
+          padding: 12,
+          displayColors: false,
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: line, drawTicks: false },
+          border: { color: line },
+          ticks: {
+            color: fg2,
+            font: { family: "JetBrains Mono", size: 10 },
+            maxTicksLimit: 8,
+            autoSkip: true,
+            padding: 8,
+          }
+        },
+        y: {
+          grid: { color: line },
+          border: { display: false },
+          ticks: {
+            color: fg2,
+            font: { family: "JetBrains Mono", size: 10 },
+            padding: 8,
+            precision: 0,
+          }
+        }
+      }
+    }
+  });
+})();
 </script>
+{% endif %}
 {% endblock %}
