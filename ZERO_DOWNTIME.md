@@ -27,6 +27,26 @@ so we don't double the Steam API rate.
 
 ---
 
+## Required server-side hardening (do once)
+
+After cloning to a fresh server, tighten file permissions before the
+first `docker compose up`:
+
+```bash
+# .env contains SESSION_SECRET, ADMIN_PASSWORD, POSTGRES_PASSWORD,
+# GOOGLE_CLIENT_SECRET, CLOUDFLARED_TOKEN — readable by anyone in
+# group `tew` by default. Lock it to the owner only.
+chmod 600 .env
+
+# DB dumps land here. Tighten so other host users can't read them.
+mkdir -p backups
+chmod 700 backups
+
+# (Optional but recommended) encrypt new dumps with `age`:
+#   apt install age && age-keygen -o ~/.modboard.key
+# then edit the db-backup service to pipe pg_dump → age -R recipient.
+```
+
 ## One-time migration from the old single-`app` setup
 
 If you're upgrading a server that currently runs the old compose

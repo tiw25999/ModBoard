@@ -143,9 +143,24 @@ async def list_mods(request: Request, session: AsyncSession = Depends(get_db)):
     return templates.TemplateResponse(request, "admin_mods.html", {"mods": mods})
 
 
+# Single shared lock so an admin clicking "Poll now" 10 times doesn't
+# spawn 10 concurrent Steam scrapes (which would race on inserts, fire
+# duplicate notifications, and risk a Steam IP ban).
+_POLL_LOCK = asyncio.Lock()
+
+
+async def _poll_once_locked() -> None:
+    if _POLL_LOCK.locked():
+        return
+    async with _POLL_LOCK:
+        await poll_once()
+
+
 @router.post("/poll-now")
 async def trigger_poll():
-    asyncio.create_task(poll_once())
+    if _POLL_LOCK.locked():
+        return RedirectResponse("/admin?polled=busy", status_code=303)
+    asyncio.create_task(_poll_once_locked())
     return RedirectResponse("/admin?polled=1", status_code=303)
 
 

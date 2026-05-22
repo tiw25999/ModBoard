@@ -1,13 +1,25 @@
-# 0-downtime topology:
-#   cloudflared → caddy → [app1 round-robin app2]
-# Both app replicas share image `modboard-app:latest`. Only one
-# (app1) runs the Steam poller; the other (app2) is HTTP-only.
-# deploy.sh rebuilds the image then rolls them one at a time —
-# Caddy's active health checks route around whichever is down.
+# 0-downtime topology with hardened network segmentation:
 #
-# IMPORTANT: After first switch to this compose, update the
-# Cloudflare Tunnel public hostname target in the Zero Trust
-# dashboard from  http://app:8000  →  http://caddy:8000
+#   cloudflared ──┐
+#                 ▼     (edge network)
+#               caddy ──┬──► app1
+#                       └──► app2
+#                                ▼  (backend network)
+#                              db
+#                              db-backup
+#
+# Two docker networks isolate the data tier from the request path:
+#   edge:    cloudflared, caddy, app1, app2  (HTTP traffic)
+#   backend: db, db-backup, app1, app2        (Postgres only)
+#
+# That means a compromise of cloudflared (or the edge network in
+# general) does NOT give the attacker a direct route to Postgres —
+# they'd still have to go through the app, which has its own
+# authorization layer.
+#
+# IMPORTANT: caddy declares network alias `app` on the edge network,
+# so the existing Cloudflare Tunnel target `http://app:8000` keeps
+# resolving without a dashboard edit during cutover.
 
 x-app: &app
   image: modboard-app:latest
@@ -23,6 +35,7 @@ x-app: &app
     retries: 3
     start_period: 20s
   restart: unless-stopped
+  networks: [edge, backend]
 
 services:
   app1:
@@ -43,19 +56,16 @@ services:
       - caddy_config:/config
     ports:
       # Bind to loopback only — Cloudflare Tunnel reaches us via the
-      # docker network (service name `caddy` or alias `app`), not via
-      # the host port. The host port is just so deploy.sh can run
-      # smoke checks.
+      # docker network, not via the host port. Host port is just for
+      # deploy.sh smoke checks.
       - "127.0.0.1:8000:8000"
     networks:
-      default:
+      edge:
         aliases:
-          # `app` is the legacy hostname the Cloudflare Tunnel was
-          # already configured to dial back when there was a single
-          # `app` service. Keeping the alias here means cutting over
-          # to the new caddy+app1+app2 topology requires ZERO
-          # dashboard changes — the tunnel target `http://app:8000`
-          # now resolves to caddy, which load-balances to app1/app2.
+          # Cloudflare Tunnel was originally configured to dial
+          # `http://app:8000`. Keeping the alias here means the
+          # cutover to caddy+app1+app2 requires ZERO dashboard
+          # changes — `app` now resolves to caddy.
           - app
     depends_on:
       - app1
@@ -72,21 +82,32 @@ services:
       interval: 5s
       retries: 10
     restart: unless-stopped
+    # Only on the backend network — NOT reachable from caddy/cloudflared.
+    networks: [backend]
 
   cloudflared:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
-    env_file: .env
+    # No env_file — cloudflared only needs the token, which is passed
+    # explicitly. Avoids leaking SESSION_SECRET / GOOGLE_CLIENT_SECRET
+    # into a container that has no business knowing them.
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN}
     depends_on:
       - caddy
     restart: unless-stopped
+    networks: [edge]
 
   db-backup:
     image: postgres:15-alpine
-    env_file: .env
     volumes:
       - ./backups:/backups
+    # Same scoping rationale — db-backup only needs Postgres creds.
+    # Passing the full .env here would mean every shell into the
+    # backup container leaks unrelated secrets via `env`.
     environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
       PGPASSWORD: ${POSTGRES_PASSWORD}
     entrypoint:
       - sh
@@ -101,8 +122,15 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks: [backend]
 
 volumes:
   pgdata:
   caddy_data:
   caddy_config:
+
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge

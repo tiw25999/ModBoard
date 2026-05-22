@@ -5,12 +5,14 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.config import settings as _settings
 from app.db import SessionLocal
+from app.services.bbcode import safe_url
 from app.routes import admin as admin_routes
 from app.routes import auth as auth_routes
 from app.routes import forum as forum_routes
@@ -41,7 +43,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ModBoard", lifespan=lifespan)
 
+# Fail-fast on weak operator config — better to refuse to boot than
+# ship with a guessable SESSION_SECRET that lets anyone forge cookies.
+if len(_settings.session_secret) < 32 or _settings.session_secret in (
+    "change-me-to-a-long-random-string", "change-me", "secret", "",
+):
+    raise RuntimeError(
+        "SESSION_SECRET is missing, too short, or still the placeholder. "
+        "Set it to ≥32 random chars (e.g. `python -c 'import secrets; "
+        "print(secrets.token_urlsafe(48))'`) before booting."
+    )
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Expose `safe_url` as a Jinja filter so every template that renders a
+# user-controlled href can pass it through:  href="{{ url|safe_url }}"
+# Blocks javascript:/data:/vbscript: schemes at render time.
+_error_templates.env.filters["safe_url"] = safe_url
+for _r in (auth_routes, forum_routes, public_routes):
+    if hasattr(_r, "templates"):
+        _r.templates.env.filters["safe_url"] = safe_url
 app.include_router(seo_routes.router)   # robots.txt + sitemap.xml at root
 app.include_router(feeds_routes.router) # /forum.rss, /news.rss, /mod/{id}/comments.rss, etc.
 app.include_router(public_routes.router)
@@ -83,15 +104,30 @@ async def security_headers(request: Request, call_next):
     response = await call_next(request)
     for k, v in _SECURITY_HEADERS.items():
         response.headers.setdefault(k, v)
-    # HSTS only on real production (cookies-Secure flag tracks the same
-    # thing). Cloudflare will also set this, but defense in depth is free.
-    from app.config import settings as _s
-    if _s.production:
-        response.headers.setdefault(
-            "Strict-Transport-Security",
-            "max-age=63072000; includeSubDomains; preload",
-        )
+    # HSTS is now always set — Cloudflare terminates TLS for production
+    # and dev traffic is local. Browsers will only honor it on HTTPS,
+    # so a local dev visit doesn't get pinned.
+    response.headers.setdefault(
+        "Strict-Transport-Security",
+        "max-age=63072000; includeSubDomains; preload",
+    )
     return response
+
+
+# Hard cap on inbound request size — defends against DoS via huge
+# POST bodies (a single 2GB form post would OOM the worker otherwise).
+MAX_REQUEST_BYTES = 256 * 1024  # 256KB is plenty for forum + admin forms
+
+
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_REQUEST_BYTES:
+        return JSONResponse(
+            {"detail": "request body too large"},
+            status_code=413,
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -114,6 +150,9 @@ async def attach_current_user(request: Request, call_next):
     request.state.unread_count = 0
     request.state.is_admin = _is_admin_cookie(request)
     request.state.banner = None
+    # Hardened canonical base — read from settings.canonical_base so
+    # `rel=canonical` in base.html can't be host-header-poisoned.
+    request.state.canonical_base = _settings.canonical_base.rstrip("/") if _settings.canonical_base else ""
     # Skip the per-request DB round-trip for static assets and the
     # health probe — both run every few seconds and never need user
     # context.

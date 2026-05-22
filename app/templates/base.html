@@ -7,7 +7,11 @@
   <title>{% block title %}ModBoard{% endblock %}</title>
 
   {# ---------- SEO + social ---------- #}
-  {%- set canonical = request.url._url.split('?')[0] -%}
+  {# Build canonical from the configured canonical_base when available
+     so a spoofed Host header can't poison rel=canonical on logged-in
+     pages. Falls back to the request URL in dev. #}
+  {%- set _cb = request.state.canonical_base or (request.url.scheme ~ '://' ~ request.url.netloc) -%}
+  {%- set canonical = _cb ~ request.url.path -%}
   <meta name="description" content="{% block description %}Self-hosted dashboard tracking Steam Workshop mod stats, comments, and community discussion.{% endblock %}">
   <link rel="canonical" href="{{ canonical }}">
 

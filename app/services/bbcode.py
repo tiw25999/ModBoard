@@ -29,6 +29,17 @@ def _safe_url(raw: str) -> str:
     return "#"
 
 
+def safe_url(raw: str | None) -> str:
+    """Public helper / Jinja filter — same allowlist as `_safe_url`
+    but tolerates None and returns `#` for unsafe schemes. Use on any
+    `href` whose value originated from user input or external HTML."""
+    if not raw:
+        return "#"
+    if _SAFE_URL_RE.match(raw):
+        return raw.strip()
+    return "#"
+
+
 def _esc(s: str) -> str:
     return _html.escape(s, quote=True)
 

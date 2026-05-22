@@ -18,7 +18,7 @@
     <div class="discussion-main">
       <h3 class="discussion-title">
         {% if d.url %}
-          <a href="{{ d.url }}" target="_blank" rel="noopener">{{ d.title }}</a>
+          <a href="{{ d.url|safe_url }}" target="_blank" rel="noopener">{{ d.title }}</a>
         {% else %}
           {{ d.title }}
         {% endif %}

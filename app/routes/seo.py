@@ -7,11 +7,13 @@ the DB; manually invalidate via the cache.invalidate() helper if needed.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape as _xml_escape
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_db
 from app.models import ForumThread, Mod
 from app.services.cache import cached
@@ -19,9 +21,17 @@ from app.services.cache import cached
 router = APIRouter()
 
 
+def _base(request: Request) -> str:
+    """Prefer the configured canonical URL so a spoofed Host header
+    can't poison cached sitemap XML — same pattern as feeds.py."""
+    if settings.canonical_base:
+        return settings.canonical_base.rstrip("/")
+    return f"{request.url.scheme}://{request.url.netloc}"
+
+
 @router.get("/robots.txt", response_class=Response)
 async def robots(request: Request):
-    base = f"{request.url.scheme}://{request.url.netloc}"
+    base = _base(request)
     body = (
         "User-agent: *\n"
         "Disallow: /admin/\n"
@@ -67,10 +77,12 @@ async def _build_sitemap_xml(base: str, session: AsyncSession) -> str:
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for loc, lastmod, changefreq in urls[:5000]:
+        # XML-escape every interpolated value — slugify() restricts to
+        # [a-z0-9-] today, but defence in depth catches any future drift.
         body.append(
-            f"  <url><loc>{loc}</loc>"
-            f"<lastmod>{lastmod}</lastmod>"
-            f"<changefreq>{changefreq}</changefreq></url>"
+            f"  <url><loc>{_xml_escape(loc)}</loc>"
+            f"<lastmod>{_xml_escape(lastmod)}</lastmod>"
+            f"<changefreq>{_xml_escape(changefreq)}</changefreq></url>"
         )
     body.append("</urlset>")
     return "\n".join(body)
@@ -78,7 +90,7 @@ async def _build_sitemap_xml(base: str, session: AsyncSession) -> str:
 
 @router.get("/sitemap.xml", response_class=Response)
 async def sitemap(request: Request, session: AsyncSession = Depends(get_db)):
-    base = f"{request.url.scheme}://{request.url.netloc}"
+    base = _base(request)
     xml = await cached(
         f"sitemap:{base}",
         ttl_seconds=3600,

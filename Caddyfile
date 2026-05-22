@@ -11,14 +11,16 @@
 :8000 {
 	log {
 		output stdout
-		format console
+		format json
 		level INFO
 	}
 
-	# Trust the X-Forwarded-* headers from cloudflared so the app
-	# sees the real client IP, not the tunnel's internal IP.
-	# (cloudflared also injects CF-Connecting-IP — that's the
-	# authoritative one if you want it in your audit log.)
+	# Hard cap on inbound request body. The app's own middleware also
+	# rejects >256KB, but stopping it at the proxy means the app
+	# worker never wastes CPU parsing a 2GB form submission.
+	request_body {
+		max_size 256KB
+	}
 
 	reverse_proxy app1:8000 app2:8000 {
 		# round_robin (default) — both serve traffic when healthy.
@@ -46,15 +48,25 @@
 			response_header_timeout 30s
 		}
 
-		# Pass real client IP through to the app.
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
+		# Pass the *real* client IP to the app. cloudflared injects
+		# CF-Connecting-IP set to the originating browser's IP; we
+		# forward that as X-Real-IP / X-Forwarded-For so app-level
+		# logging and rate-limiting key on the actual visitor, not
+		# the cloudflared container's 172.x.x.x address.
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 		header_up X-Forwarded-Proto {scheme}
 	}
 
-	# Health endpoint exposed by caddy itself — lets deploy.sh
-	# probe the proxy without needing an app upstream.
+	# Health endpoint exposed by caddy itself — restricted to internal
+	# docker networks so external probes can't use it as a fingerprint.
+	@internal {
+		remote_ip 127.0.0.1/32 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+	}
 	handle /caddy-health {
-		respond "ok" 200
+		handle @internal {
+			respond "ok" 200
+		}
+		respond "not found" 404
 	}
 }

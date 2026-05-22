@@ -59,6 +59,34 @@ async def _notify_mentions(session, raw_body: str, thread_id: int, post_id: int 
 
 DEVELOPER_LABEL = "Developer"
 
+# Caps for spam / DoS resistance.
+MAX_BODY_LEN = 20000          # truncate any body before persist
+MAX_TITLE_LEN = 256
+MAX_AUTHOR_LEN = 64
+MAX_FANOUT_PER_POST = 100     # how many reply-to-reply notifications a single post can fire
+RATE_LIMIT_REACTIONS_PER_HOUR = 120
+
+
+def _safe_referer(request: Request, fallback: str = "/forum") -> str:
+    """Treat the Referer header as untrusted user input. Accept only a
+    same-origin path; anything else collapses to fallback. Used by
+    /forum/react which redirects back to wherever the user came from."""
+    ref = request.headers.get("referer", "")
+    if not ref:
+        return fallback
+    # Relative path that doesn't look like a protocol-relative bypass
+    if ref.startswith("/") and not ref.startswith("//"):
+        return ref
+    # Absolute URL pointing at our own host
+    from urllib.parse import urlparse
+    parsed = urlparse(ref)
+    if parsed.scheme in ("http", "https") and parsed.netloc == request.url.netloc:
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        return path
+    return fallback
+
 
 def require_admin_or_403(request: Request):
     """Replacement for the old Basic-auth Depends. Throws 403 on miss
@@ -185,8 +213,8 @@ async def forum_new_submit(
     session: AsyncSession = Depends(get_db),
 ):
     token = get_or_create_token(request, response)
-    title = title.strip()[:256]
-    body = body.strip()
+    title = title.strip()[:MAX_TITLE_LEN]
+    body = body.strip()[:MAX_BODY_LEN]
     kind = kind if kind in THREAD_KINDS else "discussion"
     user = await current_user(request, session)
     # Admins post under a fixed "Developer" label.
@@ -352,7 +380,7 @@ async def forum_reply(
     if thread.locked:
         raise HTTPException(403, detail="Thread is locked")
 
-    body = body.strip()
+    body = body.strip()[:MAX_BODY_LEN]
     user = await current_user(request, session)
     if _is_admin(request):
         author_name = DEVELOPER_LABEL
@@ -399,7 +427,9 @@ async def forum_reply(
 
     # Also notify everyone else who previously replied in the thread (so a
     # conversation pings all participants, GitHub-issue style). Dedupe so
-    # the same person doesn't get N copies.
+    # the same person doesn't get N copies. Capped at MAX_FANOUT_PER_POST
+    # so a thread with thousands of repliers can't be weaponized into a
+    # notification flood on every new reply.
     prev_repliers = (
         await session.execute(
             select(ForumPost.author_user_id)
@@ -409,6 +439,7 @@ async def forum_reply(
                 ForumPost.id != post.id,
             )
             .distinct()
+            .limit(MAX_FANOUT_PER_POST)
         )
     ).scalars().all()
     already_notified = {thread.author_user_id, user.id if user else None}
@@ -458,20 +489,36 @@ async def forum_upvote(
         )
     ).scalar_one_or_none()
 
+    # Atomic counter update: avoids drift when two clicks race. The
+    # row-level UPDATE serialises against the unique constraint on
+    # (thread_id, voter_token), so either the insert wins (counter +1)
+    # or the delete wins (counter -1), never both.
+    from sqlalchemy import update as _update
     if existing is not None:
         await session.delete(existing)
-        thread.upvotes = max(0, thread.upvotes - 1)
+        await session.execute(
+            _update(ForumThread)
+            .where(ForumThread.id == thread_id, ForumThread.upvotes > 0)
+            .values(upvotes=ForumThread.upvotes - 1)
+        )
     else:
         session.add(ForumUpvote(
             thread_id=thread_id,
             voter_token=token,
             created_at=datetime.now(timezone.utc),
         ))
-        thread.upvotes += 1
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
+        try:
+            await session.flush()
+        except IntegrityError:
+            # Someone else won the race — don't bump the counter.
+            await session.rollback()
+            return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
+        await session.execute(
+            _update(ForumThread)
+            .where(ForumThread.id == thread_id)
+            .values(upvotes=ForumThread.upvotes + 1)
+        )
+    await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
 
 
@@ -493,6 +540,11 @@ async def forum_react(
         raise HTTPException(400, detail="thread_id or post_id required")
 
     token = get_or_create_token(request, response)
+    # Reactions were previously unrate-limited — a single voter could
+    # POST millions of toggle requests and (for thread-level reactions,
+    # whose unique constraint NULL-skipped before the partial-unique
+    # migration) flood the DB. Cap at RATE_LIMIT_REACTIONS_PER_HOUR / token.
+    await _check_rate_limit(session, token, ForumReaction, RATE_LIMIT_REACTIONS_PER_HOUR)
 
     where = ForumReaction.voter_token == token
     where &= ForumReaction.emoji == emoji
@@ -518,9 +570,10 @@ async def forum_react(
     except IntegrityError:
         await session.rollback()
 
-    # Return to where they came from
-    referer = request.headers.get("referer", "/forum")
-    return RedirectResponse(referer + (f"#post-{post_id}" if post_id else ""), status_code=303)
+    # Same-origin only — never trust the Referer header as a redirect
+    # target (open-redirect → phishing).
+    target = _safe_referer(request, fallback="/forum")
+    return RedirectResponse(target + (f"#post-{post_id}" if post_id else ""), status_code=303)
 
 
 # ---------- delete own post within window ----------------------------------
@@ -575,14 +628,20 @@ async def forum_post_edit_submit(
     if not _can_edit(request, post.author_token, post.author_user_id,
                      user.id if user else None, post.created_at):
         raise HTTPException(403)
-    body = body.strip()
+    # Block edits if the parent thread is locked — otherwise a user
+    # within their 30-min edit window can defeat moderation by
+    # rewriting their post after an admin locks the thread.
+    # Admins still bypass via _can_edit returning True.
+    thread = await session.get(ForumThread, post.thread_id)
+    if thread is not None and thread.locked and not _check_admin(request):
+        raise HTTPException(403, detail="Thread is locked")
+    body = body.strip()[:MAX_BODY_LEN]
     if len(body) < 10:
         raise HTTPException(400, detail="body too short")
     post.body_raw = body
     post.body_html = render(body)
     post.edited_at = datetime.now(timezone.utc)
     await session.commit()
-    thread = await session.get(ForumThread, post.thread_id)
     slug = thread.slug if thread else ""
     return RedirectResponse(f"/forum/{post.thread_id}/{slug}#post-{post.id}", status_code=303)
 
@@ -621,8 +680,10 @@ async def forum_thread_edit_submit(
     if not _can_edit(request, thread.author_token, thread.author_user_id,
                      user.id if user else None, thread.created_at):
         raise HTTPException(403)
-    title = title.strip()[:256]
-    body = body.strip()
+    if thread.locked and not _check_admin(request):
+        raise HTTPException(403, detail="Thread is locked")
+    title = title.strip()[:MAX_TITLE_LEN]
+    body = body.strip()[:MAX_BODY_LEN]
     if len(title) < 5 or len(body) < 10:
         raise HTTPException(400, detail="title/body too short")
     thread.title = title

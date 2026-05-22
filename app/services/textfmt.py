@@ -18,10 +18,15 @@ _URL_RE = re.compile(r"(https?://[^\s<>\"']+)")
 _MENTION_RE = re.compile(r"(?<![A-Za-z0-9_])@([A-Za-z0-9_.-]{2,32})")
 
 
+MAX_MENTIONS_PER_POST = 10
+
+
 def extract_mentions(raw: str) -> list[str]:
     """Pull `@name` tokens out of raw text before rendering. Returns
     the unique lower-cased name strings (matched case-insensitively by
-    caller against user.name)."""
+    caller against user.name). Capped at MAX_MENTIONS_PER_POST so a
+    `@everyone`-style spam post can't fan out N×N notifications or blow
+    up an IN clause."""
     if not raw:
         return []
     seen: list[str] = []
@@ -33,6 +38,8 @@ def extract_mentions(raw: str) -> list[str]:
             continue
         lower_seen.add(key)
         seen.append(name)
+        if len(seen) >= MAX_MENTIONS_PER_POST:
+            break
     return seen
 
 

@@ -26,7 +26,7 @@
       <div class="who">
         <span class="author">
           {% if c.author_profile_url %}
-            <a href="{{ c.author_profile_url }}" target="_blank" rel="noopener">{{ c.author_name or "anonymous" }}</a>
+            <a href="{{ c.author_profile_url|safe_url }}" target="_blank" rel="noopener">{{ c.author_name or "anonymous" }}</a>
           {% else %}
             {{ c.author_name or "anonymous" }}
           {% endif %}

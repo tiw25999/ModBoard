@@ -14,5 +14,12 @@ RUN uv pip install --system -e ".[dev]"
 
 COPY . .
 
+# Drop root before runtime. Limits blast radius if the app gets RCE —
+# attacker lands as uid 10001 with no shell, no sudo, no writable
+# system dirs. Static fixed uid so volumes mounted by compose match.
+RUN useradd --system --uid 10001 --shell /usr/sbin/nologin app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

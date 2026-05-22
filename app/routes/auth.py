@@ -41,9 +41,20 @@ templates = Jinja2Templates(directory="app/templates")
 
 
 def _safe_next(value: str | None) -> str:
-    if value and value.startswith("/") and not value.startswith("//"):
-        return value
-    return "/"
+    r"""Allow only relative same-origin paths. Rejects:
+      - empty / non-string
+      - protocol-relative (//evil.com)
+      - backslash variants browsers may normalize to / (/\evil.com)
+      - percent-encoded slashes that decode to // or \\ after parsing
+    """
+    if not value or not value.startswith("/"):
+        return "/"
+    head = value[:8].lower()
+    if value.startswith("//") or "\\" in head:
+        return "/"
+    if "%2f" in head or "%5c" in head:
+        return "/"
+    return value
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -80,8 +91,10 @@ async def admin_login_submit(
 
 
 @router.post("/admin/logout")
-@router.get("/admin/logout")
 async def admin_logout():
+    # POST-only — a GET would let `<img src="/auth/admin/logout">` on a
+    # malicious page log the admin out silently (logout-CSRF). The nav
+    # already posts to /auth/logout which clears both cookies in one go.
     response = RedirectResponse("/", status_code=303)
     clear_admin_session(response)
     return response
@@ -95,14 +108,16 @@ async def google_login(request: Request, next: str = "/"):
     response = RedirectResponse(authorize_url(state), status_code=302)
     response.set_cookie(
         OAUTH_STATE_COOKIE, state, max_age=600,
-        httponly=True, samesite="lax", secure=False,
+        httponly=True, samesite="lax", secure=settings.secure_cookies,
     )
     # Preserve where to land after login (relative URL only — never trust
-    # external redirects)
-    if next.startswith("/") and not next.startswith("//"):
+    # external redirects). _safe_next handles backslash + percent-encoded
+    # bypass variants too.
+    safe = _safe_next(next)
+    if safe != "/":
         response.set_cookie(
-            OAUTH_NEXT_COOKIE, next, max_age=600,
-            httponly=True, samesite="lax", secure=False,
+            OAUTH_NEXT_COOKIE, safe, max_age=600,
+            httponly=True, samesite="lax", secure=settings.secure_cookies,
         )
     return response
 
@@ -139,8 +154,19 @@ async def google_callback(
 
     sub = info.get("sub")
     email = info.get("email")
+    email_verified = info.get("email_verified") is True
     if not sub or not email:
         raise HTTPException(502, detail="Missing sub/email in userinfo")
+    # Without email_verified=true, anyone running their own Google Workspace
+    # could mint an account claiming someone else's email. Reject — it's
+    # an identity-spoofing vector even if we don't currently look up users
+    # by email.
+    if not email_verified:
+        raise HTTPException(
+            403,
+            detail="Your Google account's email is not verified. "
+                   "Verify it with Google and try again.",
+        )
 
     now = datetime.now(timezone.utc)
     user = (
@@ -170,8 +196,11 @@ async def google_callback(
             user.last_login_at = now
             await session.commit()
     else:
-        # Refresh profile fields in case the user updated them on Google's side
-        user.email = email
+        # Refresh profile fields — but only the email if Google still
+        # reports it as verified AND it actually changed. Avatar/name
+        # are display-only so safe to refresh unconditionally.
+        if email_verified and user.email != email:
+            user.email = email
         user.name = info.get("name") or user.name
         user.avatar_url = info.get("picture") or user.avatar_url
         user.last_login_at = now
