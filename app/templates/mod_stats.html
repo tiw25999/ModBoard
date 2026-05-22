@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ mod.title or mod.name }} Stats — ModBoard{% endblock %}
+{% block body %}
+<h1>{{ mod.title or mod.name }} · Subscriber growth</h1>
+<p><a href="/mod/{{ mod.id }}">← back to mod</a></p>
+<canvas id="chart" width="900" height="320"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+new Chart(document.getElementById("chart"), {
+  type: "line",
+  data: {
+    labels: {{ labels|tojson }},
+    datasets: [{
+      label: "Current Subscribers",
+      data: {{ subs|tojson }},
+      tension: 0.2,
+      fill: false,
+    }]
+  },
+  options: { scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 } } } }
+});
+</script>
+{% endblock %}

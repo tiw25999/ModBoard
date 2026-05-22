@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Admin — Mods{% endblock %}
+{% block body %}
+<h1>Admin · Mods</h1>
+
+<form method="post" action="/admin/mods">
+  <input type="number" name="workshop_id" placeholder="Workshop ID" required>
+  <input type="text" name="name" placeholder="Short name (e.g. HoldoutSurvivors)" required>
+  <button type="submit">Add</button>
+</form>
+
+<table>
+  <thead><tr><th>ID</th><th>Name</th><th>Title</th><th></th></tr></thead>
+  <tbody>
+  {% for m in mods %}
+    <tr>
+      <td>{{ m.id }}</td>
+      <td>{{ m.name }}</td>
+      <td>{{ m.title or "—" }}</td>
+      <td>
+        <form method="post" action="/admin/mods/{{ m.id }}/delete">
+          <button type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
