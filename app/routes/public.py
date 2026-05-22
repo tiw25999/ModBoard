@@ -10,7 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_
 
 from app.db import get_db
-from app.models import ForumPost, ForumThread, Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot, User
+from app.models import (
+    ForumPost,
+    ForumThread,
+    Mod,
+    ModChangelog,
+    ModComment,
+    ModDiscussion,
+    ModSnapshot,
+    NewsPost,
+    RoadmapItem,
+    User,
+)
 from app.services.bbcode import steam_bbcode_to_html
 
 router = APIRouter()
@@ -46,6 +57,7 @@ async def _counts(session: AsyncSession, mod_id: int) -> dict[str, int]:
         "comments": await _n(ModComment),
         "changelogs": await _n(ModChangelog),
         "discussions": await _n(ModDiscussion),
+        "roadmap": await _n(RoadmapItem),
     }
 
 
@@ -158,6 +170,50 @@ async def mod_discussions(
         request, "mod_discussions.html",
         {"mod": mod, "discussions": discussions, "counts": counts, "active_tab": "discussions"},
     )
+
+
+@router.get("/mod/{mod_id}/roadmap", response_class=HTMLResponse)
+async def mod_roadmap(
+    request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
+):
+    mod = await _require_mod(session, mod_id)
+    items = (
+        await session.execute(
+            select(RoadmapItem)
+            .where(RoadmapItem.mod_id == mod_id)
+            .order_by(RoadmapItem.position.asc(), RoadmapItem.id.asc())
+        )
+    ).scalars().all()
+    counts = await _counts(session, mod_id)
+    # Group by status for easy column rendering
+    by_status: dict[str, list] = {"in_progress": [], "planned": [], "done": [], "cancelled": []}
+    for it in items:
+        by_status.setdefault(it.status, []).append(it)
+    return templates.TemplateResponse(
+        request, "mod_roadmap.html",
+        {"mod": mod, "items": items, "by_status": by_status,
+         "counts": counts, "active_tab": "roadmap"},
+    )
+
+
+@router.get("/news", response_class=HTMLResponse)
+async def news_index(request: Request, session: AsyncSession = Depends(get_db)):
+    posts = (
+        await session.execute(
+            select(NewsPost)
+            .where(NewsPost.active.is_(True))
+            .order_by(NewsPost.created_at.desc())
+            .limit(50)
+        )
+    ).scalars().all()
+    return templates.TemplateResponse(
+        request, "news.html", {"posts": posts},
+    )
+
+
+@router.get("/donate", response_class=HTMLResponse)
+async def donate(request: Request):
+    return templates.TemplateResponse(request, "donate.html", {})
 
 
 @router.get("/u/{user_id:int}", response_class=HTMLResponse)

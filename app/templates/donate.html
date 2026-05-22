@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Support ModBoard — donate{% endblock %}
+{% block description %}Help keep ModBoard ad-free and self-hosted. Donate via Ko-fi, GitHub Sponsors, PayPal, or crypto — every contribution covers server bills.{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Support the project</span>
+    <h1>Keep ModBoard <span class="serif-accent">running</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2);max-width:60ch">
+      ModBoard is self-hosted, ad-free, and open source. Server, domain, and Cloudflare add up.
+      If it's been useful, a one-off coffee or a small monthly nudge keeps the lights on.
+    </div>
+  </div>
+</section>
+
+<div class="donate-grid">
+  <a class="donate-card" href="https://ko-fi.com/REPLACE_WITH_YOUR_HANDLE" target="_blank" rel="noopener">
+    <div class="donate-card-head">
+      <span class="donate-icon" style="background:#13c3ff">☕</span>
+      <h2>Ko-fi</h2>
+    </div>
+    <p>One-off tip or monthly support. 0% platform fee. Card + PayPal accepted worldwide.</p>
+    <span class="donate-cta">Tip on Ko-fi →</span>
+  </a>
+
+  <a class="donate-card" href="https://github.com/sponsors/tiw25999" target="_blank" rel="noopener">
+    <div class="donate-card-head">
+      <span class="donate-icon" style="background:#24292f">♥</span>
+      <h2>GitHub Sponsors</h2>
+    </div>
+    <p>Monthly sponsorship through GitHub. Free for developers (no fees), needs a GitHub account.</p>
+    <span class="donate-cta">Sponsor on GitHub →</span>
+  </a>
+
+  <a class="donate-card" href="https://www.paypal.com/paypalme/REPLACE_WITH_YOUR_HANDLE" target="_blank" rel="noopener">
+    <div class="donate-card-head">
+      <span class="donate-icon" style="background:#00457c">P</span>
+      <h2>PayPal</h2>
+    </div>
+    <p>Direct one-off via PayPal. Works globally. PayPal takes a small fee.</p>
+    <span class="donate-cta">Send via PayPal →</span>
+  </a>
+
+  <div class="donate-card donate-card-crypto">
+    <div class="donate-card-head">
+      <span class="donate-icon" style="background:#f7931a">₿</span>
+      <h2>Crypto</h2>
+    </div>
+    <p>For privacy-conscious supporters. Send to:</p>
+    <code class="donate-addr">REPLACE_WITH_YOUR_WALLET_ADDRESS</code>
+    <span class="donate-cta donate-cta-muted">BTC / ETH / SOL</span>
+  </div>
+</div>
+
+<section class="donate-meta">
+  <h3>Where does the money go?</h3>
+  <ul>
+    <li><strong>Hosting</strong> — VPS for the FastAPI app + Postgres + cloudflared</li>
+    <li><strong>Domain</strong> — annual renewal</li>
+    <li><strong>Backups</strong> — off-site storage of nightly DB dumps</li>
+    <li><strong>Time</strong> — feature development, bug fixes, scraping resilience as Steam changes</li>
+  </ul>
+  <p class="donate-thanks">No donor tier or perks — just gratitude. If you want to be acknowledged, post on the <a href="/forum">forum</a> and I'll thank you publicly.</p>
+</section>
+
+{% endblock %}

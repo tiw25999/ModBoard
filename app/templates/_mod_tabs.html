@@ -11,6 +11,10 @@
     <span class="lbl">Discussions</span>
     <span class="count">{{ counts.discussions }}</span>
   </a>
+  <a href="/mod/{{ mod.id }}/roadmap" class="mod-tab {% if active == 'roadmap' %}is-active{% endif %}">
+    <span class="lbl">Roadmap</span>
+    <span class="count">{{ counts.roadmap or 0 }}</span>
+  </a>
   <a href="/mod/{{ mod.id }}/changelog" class="mod-tab {% if active == 'changelog' %}is-active{% endif %}">
     <span class="lbl">Changelog</span>
     <span class="count">{{ counts.changelogs }}</span>

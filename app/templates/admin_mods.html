@@ -61,6 +61,7 @@
 
     <div class="admin-mod-actions">
       <a href="/mod/{{ m.id }}" class="btn-row-link">View</a>
+      <a href="/admin/mods/{{ m.id }}/roadmap" class="btn-row-link">Roadmap</a>
       <a href="{{ m.workshop_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
       <form method="post" action="/admin/mods/{{ m.id }}/delete"
             onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}?\n\nSnapshots, comments, discussions, and changelogs will be removed.');">

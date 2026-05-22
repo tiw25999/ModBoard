@@ -39,11 +39,19 @@
       <a class="brand" href="/">ModBoard <span class="brand-sub">// Workshop Telemetry</span></a>
     </div>
 
+    <form class="header-search" method="get" action="/search" role="search">
+      <span class="header-search-icon" aria-hidden="true">⌕</span>
+      <input class="header-search-input" type="search" name="q" placeholder="Search mods, threads, comments…"
+             value="{{ request.query_params.get('q', '') if path == '/search' else '' }}"
+             autocomplete="off" minlength="2">
+    </form>
+
     <nav class="topnav">
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
-      <a href="/dashboard" class="nav-link {% if path == '/dashboard' %}is-active{% endif %}">Compare</a>
       <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
-      <a href="/search" class="nav-link nav-search {% if path == '/search' %}is-active{% endif %}" title="Search" aria-label="Search">⌕</a>
+      <a href="/news" class="nav-link {% if path == '/news' %}is-active{% endif %}">News</a>
+      <a href="/dashboard" class="nav-link {% if path == '/dashboard' %}is-active{% endif %}">Compare</a>
+      <a href="/donate" class="nav-link nav-donate {% if path == '/donate' %}is-active{% endif %}" title="Support">♥</a>
       {% if is_admin %}
         <a href="/admin" class="nav-link nav-admin {% if on_admin_page %}is-active{% endif %}">⚙ Admin</a>
       {% endif %}
@@ -74,6 +82,16 @@
       {% endif %}
     </div>
   </header>
+
+  {% set banner = request.state.banner %}
+  {% if banner %}
+  <a href="/news#post-{{ banner.id }}" class="site-banner banner-{{ banner.kind }}">
+    <span class="banner-kind">{{ banner.kind }}</span>
+    <span class="banner-title">{{ banner.title }}</span>
+    <span class="banner-cta">read more →</span>
+  </a>
+  {% endif %}
+
   <main>{% block body %}{% endblock %}</main>
   {% block scripts %}{% endblock %}
 </body>

@@ -11,6 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.models import (
+    NEWS_KINDS,
+    ROADMAP_STATUSES,
     ForumPost,
     ForumThread,
     Mod,
@@ -18,8 +20,11 @@ from app.models import (
     ModComment,
     ModDiscussion,
     ModSnapshot,
+    NewsPost,
+    RoadmapItem,
 )
 from app.services.poller import poll_once
+from app.services.textfmt import render
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="app/templates")
@@ -168,6 +173,206 @@ async def delete_mod(mod_id: int, session: AsyncSession = Depends(get_db)):
         await session.delete(mod)
         await session.commit()
     return RedirectResponse("/admin/mods", status_code=303)
+
+
+# ---------- Roadmap management ---------------------------------------------
+
+@router.get("/mods/{mod_id}/roadmap", response_class=HTMLResponse)
+async def admin_roadmap(
+    request: Request,
+    mod_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    mod = await session.get(Mod, mod_id)
+    if mod is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    items = (
+        await session.execute(
+            select(RoadmapItem)
+            .where(RoadmapItem.mod_id == mod_id)
+            .order_by(RoadmapItem.position.asc(), RoadmapItem.id.asc())
+        )
+    ).scalars().all()
+    return templates.TemplateResponse(
+        request, "admin_roadmap.html",
+        {"mod": mod, "items": items, "statuses": ROADMAP_STATUSES},
+    )
+
+
+@router.post("/mods/{mod_id}/roadmap")
+async def add_roadmap_item(
+    mod_id: int,
+    title: str = Form(...),
+    body: str = Form(""),
+    status: str = Form("planned"),
+    session: AsyncSession = Depends(get_db),
+):
+    title = title.strip()[:200]
+    if not title:
+        return RedirectResponse(f"/admin/mods/{mod_id}/roadmap", status_code=303)
+    status = status if status in ROADMAP_STATUSES else "planned"
+    now = datetime.now(timezone.utc)
+    # Append at end of list
+    max_pos = int(
+        (await session.execute(
+            select(func.max(RoadmapItem.position)).where(RoadmapItem.mod_id == mod_id)
+        )).scalar() or 0
+    )
+    session.add(RoadmapItem(
+        mod_id=mod_id, title=title, body=body.strip() or None,
+        status=status, position=max_pos + 1,
+        created_at=now, updated_at=now,
+    ))
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{mod_id}/roadmap", status_code=303)
+
+
+@router.post("/roadmap/{item_id}/update")
+async def update_roadmap_item(
+    item_id: int,
+    title: str = Form(...),
+    body: str = Form(""),
+    status: str = Form(...),
+    session: AsyncSession = Depends(get_db),
+):
+    item = await session.get(RoadmapItem, item_id)
+    if item is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    item.title = title.strip()[:200] or item.title
+    item.body = body.strip() or None
+    if status in ROADMAP_STATUSES:
+        item.status = status
+    item.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{item.mod_id}/roadmap", status_code=303)
+
+
+@router.post("/roadmap/{item_id}/delete")
+async def delete_roadmap_item(
+    item_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    item = await session.get(RoadmapItem, item_id)
+    if item is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    mod_id = item.mod_id
+    await session.delete(item)
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{mod_id}/roadmap", status_code=303)
+
+
+@router.post("/roadmap/{item_id}/move")
+async def move_roadmap_item(
+    item_id: int,
+    direction: str = Form(...),  # "up" or "down"
+    session: AsyncSession = Depends(get_db),
+):
+    item = await session.get(RoadmapItem, item_id)
+    if item is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    # Find neighbor in chosen direction
+    if direction == "up":
+        neighbor = (await session.execute(
+            select(RoadmapItem)
+            .where(RoadmapItem.mod_id == item.mod_id, RoadmapItem.position < item.position)
+            .order_by(RoadmapItem.position.desc()).limit(1)
+        )).scalar_one_or_none()
+    else:
+        neighbor = (await session.execute(
+            select(RoadmapItem)
+            .where(RoadmapItem.mod_id == item.mod_id, RoadmapItem.position > item.position)
+            .order_by(RoadmapItem.position.asc()).limit(1)
+        )).scalar_one_or_none()
+    if neighbor is not None:
+        item.position, neighbor.position = neighbor.position, item.position
+        await session.commit()
+    return RedirectResponse(f"/admin/mods/{item.mod_id}/roadmap", status_code=303)
+
+
+# ---------- News / announcements -------------------------------------------
+
+@router.get("/news", response_class=HTMLResponse)
+async def admin_news_list(request: Request, session: AsyncSession = Depends(get_db)):
+    posts = (
+        await session.execute(
+            select(NewsPost).order_by(NewsPost.created_at.desc())
+        )
+    ).scalars().all()
+    return templates.TemplateResponse(
+        request, "admin_news.html",
+        {"posts": posts, "kinds": NEWS_KINDS},
+    )
+
+
+@router.post("/news")
+async def admin_news_create(
+    title: str = Form(...),
+    body: str = Form(...),
+    kind: str = Form("info"),
+    show_banner: str = Form(""),
+    session: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    title = title.strip()[:200]
+    body = body.strip()
+    if not title or not body:
+        return RedirectResponse("/admin/news", status_code=303)
+    session.add(NewsPost(
+        title=title,
+        body_html=render(body),
+        body_raw=body,
+        kind=kind if kind in NEWS_KINDS else "info",
+        active=True,
+        show_banner=bool(show_banner),
+        created_at=now,
+        updated_at=now,
+    ))
+    await session.commit()
+    return RedirectResponse("/admin/news", status_code=303)
+
+
+@router.post("/news/{post_id}/update")
+async def admin_news_update(
+    post_id: int,
+    title: str = Form(...),
+    body: str = Form(...),
+    kind: str = Form("info"),
+    active: str = Form(""),
+    show_banner: str = Form(""),
+    session: AsyncSession = Depends(get_db),
+):
+    post = await session.get(NewsPost, post_id)
+    if post is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    post.title = title.strip()[:200] or post.title
+    body = body.strip()
+    if body:
+        post.body_raw = body
+        post.body_html = render(body)
+    if kind in NEWS_KINDS:
+        post.kind = kind
+    post.active = bool(active)
+    post.show_banner = bool(show_banner)
+    post.updated_at = datetime.now(timezone.utc)
+    await session.commit()
+    return RedirectResponse("/admin/news", status_code=303)
+
+
+@router.post("/news/{post_id}/delete")
+async def admin_news_delete(
+    post_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    post = await session.get(NewsPost, post_id)
+    if post is not None:
+        await session.delete(post)
+        await session.commit()
+    return RedirectResponse("/admin/news", status_code=303)
 
 
 # ---------- Forum moderation inbox ----------------------------------------

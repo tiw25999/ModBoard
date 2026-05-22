@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Admin · News — ModBoard{% endblock %}
+{% block body %}
+
+<section class="admin-hero">
+  <div class="admin-hero-left">
+    <span class="eyebrow">News</span>
+    <h1>Announcements <span class="serif-accent">+</span> dev log</h1>
+    <div class="admin-hero-status">{{ posts|length }} post{{ "" if posts|length == 1 else "s" }} — published at <a href="/news" style="color:var(--amber)">/news</a></div>
+  </div>
+  <div class="admin-hero-actions">
+    <a href="/admin" class="btn">← Dashboard</a>
+  </div>
+</section>
+
+<section class="mods-add">
+  <h3 style="margin:0 0 var(--s-3);font-family:var(--f-mono);font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:var(--fg-2)">Create new post</h3>
+  <form method="post" action="/admin/news" autocomplete="off">
+    <div class="form-grid">
+      <div class="field" style="grid-column: span 2">
+        <label for="title">Title</label>
+        <input class="input" id="title" name="title" type="text" maxlength="200" required>
+      </div>
+      <div class="field">
+        <label for="kind">Kind</label>
+        <select class="input" id="kind" name="kind">
+          <option value="info">info</option>
+          <option value="update">update</option>
+          <option value="warning">warning</option>
+          <option value="celebration">celebration</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:var(--s-3)">
+      <label for="body">Body (supports **bold**, *italic*, &gt; quote, URLs)</label>
+      <textarea class="input" id="body" name="body" rows="5" required></textarea>
+    </div>
+    <div style="display:flex;gap:var(--s-3);align-items:center;margin-top:var(--s-3)">
+      <label style="display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;color:var(--fg-2)">
+        <input type="checkbox" name="show_banner" value="1">
+        Show as site-wide banner
+      </label>
+      <button type="submit" class="btn primary" style="margin-left:auto">+ Publish</button>
+    </div>
+  </form>
+</section>
+
+{% if posts %}
+<div class="admin-roadmap-list">
+  {% for p in posts %}
+  <article class="admin-roadmap-row">
+    <form method="post" action="/admin/news/{{ p.id }}/update" class="admin-roadmap-form">
+      <div class="form-grid">
+        <div class="field" style="grid-column: span 2">
+          <label>Title <span style="color:var(--fg-3)">· {{ p.created_at.strftime("%b %d, %Y") }}</span></label>
+          <input class="input" name="title" type="text" maxlength="200" required value="{{ p.title|e }}">
+        </div>
+        <div class="field">
+          <label>Kind</label>
+          <select class="input" name="kind">
+            {% for k in kinds %}
+              <option value="{{ k }}" {% if k == p.kind %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-top:var(--s-3)">
+        <label>Body</label>
+        <textarea class="input" name="body" rows="4">{{ p.body_raw }}</textarea>
+      </div>
+      <div class="admin-roadmap-actions" style="gap:var(--s-3);align-items:center">
+        <label style="font-family:var(--f-mono);font-size:11px;color:var(--fg-2)">
+          <input type="checkbox" name="active" value="1" {% if p.active %}checked{% endif %}> Active
+        </label>
+        <label style="font-family:var(--f-mono);font-size:11px;color:var(--fg-2)">
+          <input type="checkbox" name="show_banner" value="1" {% if p.show_banner %}checked{% endif %}> Banner
+        </label>
+        <button type="submit" class="btn-row-link">Save</button>
+      </div>
+    </form>
+
+    <div class="admin-roadmap-meta">
+      <form method="post" action="/admin/news/{{ p.id }}/delete" style="display:inline"
+            onsubmit="return confirm('Delete this news post?');">
+        <button type="submit" class="btn-row-danger">Delete</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty" style="margin-top:var(--s-5)">No news yet</div>
+{% endif %}
+
+{% endblock %}

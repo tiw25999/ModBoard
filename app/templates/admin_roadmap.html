@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ mod.title or mod.name }} roadmap — ModBoard{% endblock %}
+{% block body %}
+
+<section class="admin-hero">
+  <div class="admin-hero-left">
+    <span class="eyebrow">Roadmap · {{ mod.title or mod.name }}</span>
+    <h1>Plan the <span class="serif-accent">next</span></h1>
+    <div class="admin-hero-status">{{ items|length }} item{{ "" if items|length == 1 else "s" }} — published to <a href="/mod/{{ mod.id }}/roadmap" style="color:var(--amber)">/mod/{{ mod.id }}/roadmap</a></div>
+  </div>
+  <div class="admin-hero-actions">
+    <a href="/admin/mods" class="btn">← Mods</a>
+    <a href="/mod/{{ mod.id }}" class="btn">View mod →</a>
+  </div>
+</section>
+
+<section class="mods-add">
+  <form method="post" action="/admin/mods/{{ mod.id }}/roadmap" autocomplete="off">
+    <div class="form-grid">
+      <div class="field">
+        <label for="title">Title</label>
+        <input class="input" id="title" name="title" type="text" maxlength="200" required
+               placeholder="e.g. Multiplayer support for tier rewards">
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select class="input" id="status" name="status">
+          {% for s in statuses %}
+            <option value="{{ s }}" {% if s == 'planned' %}selected{% endif %}>{{ s.replace('_', ' ') }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin-top:var(--s-3)">
+      <label for="body">Details (optional)</label>
+      <textarea class="input" id="body" name="body" rows="3"
+                placeholder="Why this matters, scope, blockers…"></textarea>
+    </div>
+    <button type="submit" class="btn primary" style="margin-top:var(--s-3)">+ Add item</button>
+  </form>
+</section>
+
+{% if items %}
+<div class="admin-roadmap-list">
+  {% for it in items %}
+  <article class="admin-roadmap-row">
+    <form method="post" action="/admin/roadmap/{{ it.id }}/update" class="admin-roadmap-form">
+      <div class="form-grid">
+        <div class="field" style="grid-column: span 2">
+          <label>Title</label>
+          <input class="input" name="title" type="text" maxlength="200" required value="{{ it.title|e }}">
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select class="input" name="status">
+            {% for s in statuses %}
+              <option value="{{ s }}" {% if s == it.status %}selected{% endif %}>{{ s.replace('_', ' ') }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-top:var(--s-3)">
+        <label>Details</label>
+        <textarea class="input" name="body" rows="2">{{ it.body or '' }}</textarea>
+      </div>
+      <div class="admin-roadmap-actions">
+        <button type="submit" class="btn-row-link">Save</button>
+      </div>
+    </form>
+
+    <div class="admin-roadmap-meta">
+      <form method="post" action="/admin/roadmap/{{ it.id }}/move" style="display:inline">
+        <input type="hidden" name="direction" value="up">
+        <button type="submit" class="btn-row-link" title="Move up">▲</button>
+      </form>
+      <form method="post" action="/admin/roadmap/{{ it.id }}/move" style="display:inline">
+        <input type="hidden" name="direction" value="down">
+        <button type="submit" class="btn-row-link" title="Move down">▼</button>
+      </form>
+      <form method="post" action="/admin/roadmap/{{ it.id }}/delete" style="display:inline"
+            onsubmit="return confirm('Delete: {{ it.title|e }}?');">
+        <button type="submit" class="btn-row-danger">Delete</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty" style="margin-top:var(--s-5)">
+  No items yet. Add the first one above.
+</div>
+{% endif %}
+
+{% endblock %}

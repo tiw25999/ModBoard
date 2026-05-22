@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}News — ModBoard{% endblock %}
+{% block description %}Announcements and dev log from the ModBoard team.{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Announcements</span>
+    <h1>Dev <span class="serif-accent">log</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">Updates, heads-ups, and changes from the team</div>
+  </div>
+</section>
+
+{% if posts %}
+<div class="news-list">
+  {% for p in posts %}
+  <article class="news-post kind-{{ p.kind }}">
+    <header class="news-post-head">
+      <span class="news-kind-pill kind-{{ p.kind }}">{{ p.kind }}</span>
+      <time class="news-when">{{ p.created_at.strftime("%B %d, %Y · %H:%M UTC") }}</time>
+    </header>
+    <h2 class="news-title">{{ p.title }}</h2>
+    <div class="news-body forum-body">{{ p.body_html|safe }}</div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty">No announcements yet</div>
+{% endif %}
+
+{% endblock %}

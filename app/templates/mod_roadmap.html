@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
+{% block title %}{{ mod.title or mod.name }} · Roadmap — ModBoard{% endblock %}
+{% block description %}Roadmap for {{ mod.title or mod.name }} — see what's planned, in progress, and shipped.{% endblock %}
+{% block body %}
+
+{{ mod_pageheader(mod) }}
+{{ mod_tabs(mod, counts, 'roadmap') }}
+
+<div class="section-head">
+  <span class="eyebrow">Public roadmap</span>
+  <span class="section-meta">{{ items|length }} item{{ "" if items|length == 1 else "s" }}</span>
+</div>
+
+{% if items %}
+<div class="roadmap-board">
+  {% for col_key, col_label, col_icon in [
+        ("in_progress", "In progress", "🚧"),
+        ("planned",     "Planned",     "📋"),
+        ("done",        "Shipped",     "✅"),
+        ("cancelled",   "Cancelled",   "✕"),
+      ] %}
+  <section class="roadmap-col col-{{ col_key }}">
+    <header class="roadmap-col-head">
+      <span class="roadmap-col-icon">{{ col_icon }}</span>
+      <h2>{{ col_label }}</h2>
+      <span class="roadmap-col-count">{{ by_status.get(col_key, [])|length }}</span>
+    </header>
+    <ul class="roadmap-card-list">
+      {% for it in by_status.get(col_key, []) %}
+      <li class="roadmap-card">
+        <h3 class="roadmap-card-title">{{ it.title }}</h3>
+        {% if it.body %}<p class="roadmap-card-body">{{ it.body }}</p>{% endif %}
+        <div class="roadmap-card-meta">updated {{ it.updated_at.strftime("%b %d") }}</div>
+      </li>
+      {% endfor %}
+      {% if not by_status.get(col_key) %}
+      <li class="roadmap-empty">— none —</li>
+      {% endif %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty">
+  No roadmap yet. The author hasn't posted any planned features.
+</div>
+{% endif %}
+
+{% endblock %}

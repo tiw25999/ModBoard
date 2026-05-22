@@ -80,6 +80,25 @@ async def attach_current_user(request: Request, call_next):
                         .where(Notification.user_id == user.id, Notification.read_at.is_(None))
                     )).scalar() or 0
                 )
+
+    # Fetch the active banner news post (newest one flagged show_banner)
+    # cheaply — once per request, cached for 60s site-wide.
+    from app.services.cache import cached
+    from sqlalchemy import select as _bsel
+    from app.models import NewsPost as _News
+    async def _fetch_banner():
+        async with SessionLocal() as db:
+            row = (await db.execute(
+                _bsel(_News)
+                .where(_News.active.is_(True), _News.show_banner.is_(True))
+                .order_by(_News.created_at.desc())
+                .limit(1)
+            )).scalar_one_or_none()
+            if row is None:
+                return None
+            return {"id": row.id, "title": row.title, "kind": row.kind}
+    request.state.banner = await cached("site:banner", 60, _fetch_banner)
+
     return await call_next(request)
 
 

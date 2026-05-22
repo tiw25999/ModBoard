@@ -7,7 +7,9 @@ from app.models.forum import (
     ForumUpvote,
 )
 from app.models.mod import Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
+from app.models.news import NEWS_KINDS, NewsPost
 from app.models.notification import NOTIFICATION_KINDS, Notification
+from app.models.roadmap import ROADMAP_STATUSES, RoadmapItem
 from app.models.user import User
 
 __all__ = [
@@ -20,8 +22,12 @@ __all__ = [
     "ModComment",
     "ModDiscussion",
     "ModSnapshot",
+    "NewsPost",
+    "NEWS_KINDS",
     "Notification",
     "NOTIFICATION_KINDS",
+    "ROADMAP_STATUSES",
+    "RoadmapItem",
     "User",
     "THREAD_KINDS",
     "THREAD_STATUSES",
