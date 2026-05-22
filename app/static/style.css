@@ -1801,27 +1801,6 @@ select.input {
 .tier-big::before     { background: var(--amber); }
 .tier-sponsor::before { background: var(--rust); }
 
-/* Featured tier — Big tip — stands out by default */
-.tier-featured {
-  background: linear-gradient(180deg, rgba(255,181,71,0.06), #0b0d11);
-  border-color: rgba(255,181,71,0.3);
-}
-.tier-featured::before { background: var(--amber); height: 3px; }
-
-.tip-badge {
-  position: absolute;
-  top: 8px; right: 8px;
-  font-family: var(--f-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 2px 7px;
-  background: var(--amber);
-  color: var(--ink-0);
-  border-radius: 999px;
-  font-weight: 700;
-}
-
 .tip-emoji {
   font-size: 32px;
   line-height: 1;
