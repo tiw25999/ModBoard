@@ -212,6 +212,73 @@ header .brand-sub { color: var(--fg-2); font-weight: 500; }
   color: var(--rust) !important;
 }
 
+/* ---------- logged-in user chip + login button ---------- */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-1);
+  font-family: var(--f-sans);
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 180px;
+}
+.user-chip:hover { border-color: var(--amber); color: var(--fg-0); }
+.user-chip img,
+.user-chip-initial {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--amber);
+  flex: 0 0 22px;
+  object-fit: cover;
+}
+.user-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-login {
+  color: var(--amber) !important;
+  border: 1px solid var(--amber);
+}
+
+/* ---------- profile page ---------- */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+.profile-avatar {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  object-fit: cover;
+  background: var(--ink-2);
+}
+.profile-avatar.placeholder {
+  display: grid;
+  place-items: center;
+  font-family: var(--f-mono);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--amber);
+}
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-5);
+}
+@media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
+
 /* compact at narrow widths — drop center nav, reduce padding */
 @media (max-width: 640px) {
   header { grid-template-columns: 1fr auto; gap: var(--s-3); }

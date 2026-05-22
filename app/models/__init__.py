@@ -7,6 +7,7 @@ from app.models.forum import (
     ForumUpvote,
 )
 from app.models.mod import Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
+from app.models.user import User
 
 __all__ = [
     "AdminUser",
@@ -18,6 +19,7 @@ __all__ = [
     "ModComment",
     "ModDiscussion",
     "ModSnapshot",
+    "User",
     "THREAD_KINDS",
     "THREAD_STATUSES",
 ]

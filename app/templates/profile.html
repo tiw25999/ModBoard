@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ user.name }} — Profile — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div class="profile-head">
+    {% if user.avatar_url %}
+      <img class="profile-avatar" src="{{ user.avatar_url }}" alt="" referrerpolicy="no-referrer">
+    {% else %}
+      <div class="profile-avatar placeholder">{{ user.name[0]|upper }}</div>
+    {% endif %}
+    <div>
+      <span class="eyebrow">Profile</span>
+      <h1>{{ user.name }}</h1>
+      <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+        <span>{{ user.email }}</span>
+        <span style="margin:0 8px">·</span>
+        <span>joined {{ user.created_at.strftime("%Y-%m-%d") }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="meta">
+    <a href="/auth/logout" class="btn">Sign out</a>
+  </div>
+</section>
+
+<div class="profile-grid">
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Your threads</span>
+      <span class="section-meta">{{ my_threads|length }} total</span>
+    </div>
+    {% if my_threads %}
+    <ul class="thread-list">
+      {% for t in my_threads %}
+      <li class="thread-row status-{{ t.status }}">
+        <div class="thread-vote">
+          <div class="upvote-btn" style="cursor:default">
+            <span class="arrow">▲</span>
+            <span class="n">{{ t.upvotes }}</span>
+          </div>
+        </div>
+        <div class="thread-main">
+          <h3 class="thread-title">
+            <a href="/forum/{{ t.id }}/{{ t.slug }}">{{ t.title }}</a>
+          </h3>
+          <div class="thread-tags">
+            <span class="kind kind-{{ t.kind }}">{{ t.kind }}</span>
+            <span class="status status-{{ t.status }}">{{ t.status }}</span>
+            {% if t.mod %}<span class="mod-link">about <a href="/mod/{{ t.mod.id }}">{{ t.mod.title or t.mod.name }}</a></span>{% endif %}
+          </div>
+          <div class="thread-meta">
+            <span>{{ t.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+            <span>·</span>
+            <span>{{ t.reply_count }} repl{{ "y" if t.reply_count == 1 else "ies" }}</span>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="thread-empty">No threads posted yet — <a href="/forum/new">start one</a></div>
+    {% endif %}
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="eyebrow">Your replies</span>
+      <span class="section-meta">{{ my_replies|length }} total</span>
+    </div>
+    {% if my_replies %}
+    <ul class="reply-list">
+      {% for p in my_replies %}
+      <li class="reply">
+        <div class="reply-meta">
+          <a href="/forum/{{ p.thread_id }}#post-{{ p.id }}"><b>view in thread →</b></a>
+          <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+        </div>
+        <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="thread-empty">No replies yet</div>
+    {% endif %}
+  </section>
+</div>
+
+{% endblock %}

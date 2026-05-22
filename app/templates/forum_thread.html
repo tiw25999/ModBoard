@@ -92,15 +92,22 @@
   <form method="post" action="/forum/{{ thread.id }}/reply" class="forum-form">
     <input type="text" name="website" tabindex="-1" autocomplete="off"
            style="position:absolute;left:-9999px" aria-hidden="true">
+    {% set me = request.state.user %}
     {% if is_admin %}
       <div class="dev-reply-banner">
         <span class="dev-badge">DEV</span>
         <span>Replying as <b>Developer</b></span>
       </div>
       <input type="hidden" name="author_name" value="Developer">
+    {% elif me %}
+      <div class="dev-reply-banner" style="border-color:var(--line-2);background:var(--ink-1)">
+        {% if me.avatar_url %}<img src="{{ me.avatar_url }}" alt="" referrerpolicy="no-referrer" style="width:22px;height:22px;border-radius:50%">{% endif %}
+        <span>Replying as <b style="color:var(--fg-0)">{{ me.name }}</b></span>
+      </div>
+      <input type="hidden" name="author_name" value="{{ me.name }}">
     {% else %}
       <div class="field">
-        <label>Your name</label>
+        <label>Your name <span style="color:var(--fg-3)">— or <a href="/auth/google/login?next=/forum/{{ thread.id }}">sign in with Google</a></span></label>
         <input class="input" type="text" name="author_name" maxlength="64" required>
       </div>
     {% endif %}

@@ -22,6 +22,7 @@ from app.models import (
 )
 from app.services.anon import get_or_create_token, get_token
 from app.services.auth import admin_marker_present, require_admin
+from app.services.session import current_user
 from app.services.textfmt import is_likely_spam, render, slugify
 
 DEVELOPER_LABEL = "Developer"
@@ -147,9 +148,14 @@ async def forum_new_submit(
     title = title.strip()[:256]
     body = body.strip()
     kind = kind if kind in THREAD_KINDS else "discussion"
-    # Admins post under a fixed "Developer" label instead of typing a name.
+    user = await current_user(request, session)
+    # Admins post under a fixed "Developer" label.
+    # Logged-in non-admins use their Google profile name (and get user_id set).
+    # Anon posters supply their own name.
     if _is_admin(request):
         author_name = DEVELOPER_LABEL
+    elif user is not None:
+        author_name = (user.name or user.email.split("@")[0])[:64]
     else:
         author_name = author_name.strip()[:64]
 
@@ -190,6 +196,7 @@ async def forum_new_submit(
         status="open",
         author_name=author_name,
         author_token=token,
+        author_user_id=user.id if user else None,
         upvotes=0,
         reply_count=0,
         pinned=False,
@@ -270,8 +277,11 @@ async def forum_reply(
         raise HTTPException(403, detail="Thread is locked")
 
     body = body.strip()
+    user = await current_user(request, session)
     if _is_admin(request):
         author_name = DEVELOPER_LABEL
+    elif user is not None:
+        author_name = (user.name or user.email.split("@")[0])[:64]
     else:
         author_name = author_name.strip()[:64]
     reason = is_likely_spam("ok-reply-no-title-check", body, author_name, website)
@@ -286,6 +296,7 @@ async def forum_reply(
         body_raw=body,
         author_name=author_name,
         author_token=token,
+        author_user_id=user.id if user else None,
         created_at=now,
     )
     session.add(post)
