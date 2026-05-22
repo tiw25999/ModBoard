@@ -122,23 +122,80 @@ header::before {
   50%      { opacity: 0.55; transform: scale(0.85); }
 }
 
-header a {
+header .brand {
   font-family: var(--f-mono);
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-0);
+  white-space: nowrap;
+}
+header .brand-sub { color: var(--fg-2); font-weight: 500; }
+@media (max-width: 720px) {
+  header .brand-sub { display: none; }
 }
 
-header::after {
-  content: "v1 · live";
+/* primary nav */
+.topnav {
+  display: flex;
+  gap: var(--s-1);
+  margin-left: var(--s-5);
+}
+.topnav .nav-link,
+.header-right .nav-link {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.topnav .nav-link:hover,
+.header-right .nav-link:hover {
+  color: var(--fg-0);
+  background: var(--ink-2);
+}
+.topnav .nav-link.is-active {
+  color: var(--amber);
+  border-color: var(--line-2);
+  background: rgba(255,181,71,0.06);
+}
+
+.header-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.version-stamp {
   font-family: var(--f-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
   color: var(--fg-2);
   text-transform: uppercase;
+}
+
+.admin-badge {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-0);
+  background: var(--amber);
+  padding: 4px 9px 3px;
+  border-radius: var(--r-xs);
+  box-shadow: 0 0 14px var(--amber-glow);
+}
+
+.nav-exit {
+  color: var(--rust) !important;
 }
 
 main {
