@@ -220,6 +220,194 @@ header .brand-sub { color: var(--fg-2); font-weight: 500; }
   .version-stamp, .admin-badge { font-size: 10px; }
 }
 
+/* ---------- per-mod tab bar (Overview / Comments / Discussions / Changelog / Stats) ---------- */
+.mod-tabs {
+  display: flex;
+  gap: 2px;
+  margin: var(--s-5) 0 var(--s-6);
+  padding: 4px;
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.mod-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 8px 14px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.mod-tab:hover { color: var(--fg-0); background: var(--ink-2); }
+.mod-tab.is-active {
+  color: var(--amber);
+  background: rgba(255,181,71,0.07);
+  border-color: rgba(255,181,71,0.18);
+}
+.mod-tab .count {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: var(--fg-2);
+}
+.mod-tab.is-active .count { background: var(--amber); color: var(--ink-0); }
+
+.section-link { color: var(--amber) !important; }
+.section-link:hover { color: #ffd28b !important; }
+
+/* ---------- mod list: game grouping ---------- */
+.game-section { margin-bottom: var(--s-7); }
+.game-section:last-of-type { margin-bottom: 0; }
+
+.game-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px dashed var(--line-2);
+}
+.game-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-family: var(--f-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg-0);
+  margin: 0;
+}
+.game-tick {
+  display: inline-block;
+  width: 4px; height: 18px;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber-glow);
+}
+.game-count {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* ---------- discussions list ---------- */
+.discussion-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--s-3);
+}
+
+.discussion-row {
+  display: grid;
+  grid-template-columns: 1fr 96px;
+  gap: var(--s-5);
+  align-items: center;
+  padding: var(--s-4);
+  background: linear-gradient(180deg, var(--ink-1), #0b0d11);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: border-color .18s ease, transform .18s ease;
+}
+.discussion-row:hover { border-color: var(--line-2); transform: translateX(2px); }
+
+.discussion-main { min-width: 0; }
+
+.discussion-title {
+  font-family: var(--f-sans);
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--fg-0);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.discussion-title a { color: var(--fg-0); }
+.discussion-title a:hover { color: var(--amber); }
+.discussion-title .discussion-ext {
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.discussion-preview {
+  margin: 0 0 var(--s-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discussion-meta {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.discussion-meta b { color: var(--fg-1); font-weight: 500; }
+
+.discussion-side {
+  display: grid;
+  place-items: center;
+}
+.discussion-replies {
+  display: grid;
+  place-items: center;
+  padding: var(--s-3) var(--s-4);
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  min-width: 80px;
+}
+.discussion-replies .n {
+  font-family: var(--f-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.discussion-replies .k {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .discussion-row { grid-template-columns: 1fr; }
+  .discussion-side { justify-self: start; }
+  .discussion-replies { padding: var(--s-2) var(--s-3); min-width: 60px; }
+  .discussion-replies .n { font-size: 18px; }
+}
+
 main {
   max-width: 1180px;
   margin: 0 auto;

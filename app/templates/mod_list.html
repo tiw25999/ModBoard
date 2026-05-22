@@ -8,52 +8,62 @@
     <h1>Tracked <span class="serif-accent">workshop</span> mods</h1>
   </div>
   <div class="meta">
-    {{ mods|length }} mod{{ "" if mods|length == 1 else "s" }} · polling every cycle
+    {{ total_mods }} mod{{ "" if total_mods == 1 else "s" }}
+    {% if games|length %}· {{ games|length }} game{{ "" if games|length == 1 else "s" }}{% endif %}
+    · polling every cycle
   </div>
 </section>
 
-{% if mods %}
-<div class="list-intro">
-  <span class="count">Sorted by most recent snapshot · <b>{{ mods|length }}</b> total</span>
-</div>
+{% if total_mods %}
+  {% for game_name, rows in games.items() %}
+  <section class="game-section">
+    <header class="game-section-head">
+      <h2 class="game-name">
+        <span class="game-tick"></span>
+        {{ game_name }}
+      </h2>
+      <span class="game-count">{{ rows|length }} mod{{ "" if rows|length == 1 else "s" }}</span>
+    </header>
 
-<ul class="modlist">
-{% for row in mods %}
-  <li>
-    <a href="/mod/{{ row.mod.id }}" class="thumb" aria-label="{{ row.mod.title or row.mod.name }}">
-      {% if row.mod.thumbnail_url %}
-        <img src="{{ row.mod.thumbnail_url }}" alt="" loading="lazy">
-      {% endif %}
-    </a>
-    <div class="body">
-      <h2 class="title"><a href="/mod/{{ row.mod.id }}" style="color:inherit">{{ row.mod.title or row.mod.name }}</a></h2>
-      <div class="slug">
-        <span>{{ row.mod.name }}</span>
-        <span class="dot">·</span>
-        <span>id {{ row.mod.id }}</span>
-        {% if row.snap and row.snap.last_updated %}
-          <span class="dot">·</span>
-          <span>updated {{ row.snap.last_updated.strftime("%Y-%m-%d") }}</span>
-        {% endif %}
-      </div>
-    </div>
-    <div class="metrics">
-      <div class="metric">
-        <span class="v">{{ row.snap.subscribers_display if row.snap and row.snap.subscribers_display is not none else "—" }}</span>
-        <span class="k">Subs</span>
-      </div>
-      <div class="metric">
-        <span class="v">{{ row.snap.favorites_display if row.snap and row.snap.favorites_display is not none else "—" }}</span>
-        <span class="k">Favs</span>
-      </div>
-      <div class="metric">
-        <span class="v">{{ row.snap.comments_count if row.snap and row.snap.comments_count is not none else "—" }}</span>
-        <span class="k">Comments</span>
-      </div>
-    </div>
-  </li>
-{% endfor %}
-</ul>
+    <ul class="modlist">
+    {% for row in rows %}
+      <li>
+        <a href="/mod/{{ row.mod.id }}" class="thumb" aria-label="{{ row.mod.title or row.mod.name }}">
+          {% if row.mod.thumbnail_url %}
+            <img src="{{ row.mod.thumbnail_url }}" alt="" loading="lazy">
+          {% endif %}
+        </a>
+        <div class="body">
+          <h3 class="title"><a href="/mod/{{ row.mod.id }}" style="color:inherit">{{ row.mod.title or row.mod.name }}</a></h3>
+          <div class="slug">
+            <span>{{ row.mod.name }}</span>
+            <span class="dot">·</span>
+            <span>id {{ row.mod.id }}</span>
+            {% if row.snap and row.snap.last_updated %}
+              <span class="dot">·</span>
+              <span>updated {{ row.snap.last_updated.strftime("%Y-%m-%d") }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric">
+            <span class="v">{{ row.snap.subscribers_display if row.snap and row.snap.subscribers_display is not none else "—" }}</span>
+            <span class="k">Subs</span>
+          </div>
+          <div class="metric">
+            <span class="v">{{ row.snap.favorites_display if row.snap and row.snap.favorites_display is not none else "—" }}</span>
+            <span class="k">Favs</span>
+          </div>
+          <div class="metric">
+            <span class="v">{{ row.snap.comments_count if row.snap and row.snap.comments_count is not none else "—" }}</span>
+            <span class="k">Comments</span>
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
 {% else %}
 <div class="modlist">
   <div class="empty">
