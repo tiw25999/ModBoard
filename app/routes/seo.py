@@ -41,7 +41,7 @@ async def _build_sitemap_xml(base: str, session: AsyncSession) -> str:
 
     # Static pages
     for path, freq in [("/", "hourly"), ("/forum", "hourly"),
-                        ("/dashboard", "daily"), ("/search", "monthly")]:
+                        ("/news", "daily"), ("/search", "monthly")]:
         urls.append((f"{base}{path}", now, freq))
 
     # Mods + per-mod sub-pages

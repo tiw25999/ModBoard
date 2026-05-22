@@ -51,8 +51,7 @@
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
       <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
       <a href="/news" class="nav-link {% if path == '/news' %}is-active{% endif %}">News</a>
-      <a href="/dashboard" class="nav-link {% if path == '/dashboard' %}is-active{% endif %}">Compare</a>
-      <a href="/donate" class="nav-link nav-donate {% if path == '/donate' %}is-active{% endif %}" title="Support">♥</a>
+      <a href="/donate" class="nav-link nav-donate {% if path == '/donate' %}is-active{% endif %}">♥ Donate</a>
       {% if is_admin %}
         <a href="/admin" class="nav-link nav-admin {% if on_admin_page %}is-active{% endif %}">⚙ Admin</a>
       {% endif %}

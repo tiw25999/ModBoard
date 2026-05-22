@@ -416,69 +416,6 @@ async def search(
     )
 
 
-@router.get("/dashboard", response_class=HTMLResponse)
-async def overview_dashboard(
-    request: Request,
-    game: str | None = Query(default=None),
-    metric: str = Query(default="subscribers"),
-    days: int = Query(default=14, ge=1, le=180),
-    session: AsyncSession = Depends(get_db),
-):
-    """Overlay each tracked mod's subscriber/comment/visitor curve on a single chart."""
-    metric = metric if metric in ("subscribers", "visitors", "favorites", "comments") else "subscribers"
-
-    mods_q = select(Mod).where(Mod.public.is_(True)).order_by(Mod.app_name.nulls_last(), Mod.name)
-    if game:
-        mods_q = mods_q.where(Mod.app_name == game)
-    mods = (await session.execute(mods_q)).scalars().all()
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    field_map = {
-        "subscribers": ModSnapshot.subscribers_display,
-        "visitors":    ModSnapshot.visitors_display,
-        "favorites":   ModSnapshot.favorites_display,
-        "comments":    ModSnapshot.comments_count,
-    }
-    field = field_map[metric]
-
-    series: list[dict] = []
-    for m in mods:
-        snaps = (
-            await session.execute(
-                select(ModSnapshot.captured_at, field)
-                .where(ModSnapshot.mod_id == m.id, ModSnapshot.captured_at >= cutoff)
-                .order_by(ModSnapshot.captured_at.asc())
-            )
-        ).all()
-        if not snaps:
-            continue
-        series.append({
-            "mod_id": m.id,
-            "label": m.title or m.name,
-            "app_name": m.app_name,
-            "points": [
-                {"t": ts.isoformat(), "v": int(v) if v is not None else None}
-                for ts, v in snaps
-            ],
-        })
-
-    all_games = sorted({m.app_name for m in (
-        await session.execute(select(Mod).where(Mod.public.is_(True)))
-    ).scalars().all() if m.app_name})
-
-    return templates.TemplateResponse(
-        request, "dashboard.html",
-        {
-            "series": series,
-            "metric": metric,
-            "days": days,
-            "active_game": game,
-            "all_games": all_games,
-            "mod_count": len(series),
-        },
-    )
-
-
 @router.get("/mod/{mod_id}/stats", response_class=HTMLResponse)
 async def mod_stats(
     request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
