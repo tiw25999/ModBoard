@@ -31,13 +31,17 @@ services:
     env_file: .env
     volumes:
       - ./backups:/backups
-    entrypoint: >
-      sh -c 'while true; do
-        pg_dump -h db -U $$POSTGRES_USER --format=custom $$POSTGRES_DB
-          > /backups/modboard_$$(date +%F).dump;
-        find /backups -name "modboard_*.dump" -mtime +14 -delete;
-        sleep 86400;
-      done'
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          pg_dump -h db -U "$$POSTGRES_USER" --format=custom "$$POSTGRES_DB" > "/backups/modboard_$$(date +%F).dump"
+          find /backups -name "modboard_*.dump" -mtime +14 -delete
+          sleep 86400
+        done
     depends_on:
       db:
         condition: service_healthy
