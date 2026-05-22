@@ -12,6 +12,7 @@
   {% set path = request.url.path %}
   {% set on_admin_page = path.startswith('/admin') %}
   {% set is_admin = request.cookies.get('mb_admin') == '1' %}
+  {% set me = request.state.user %}
   <header>
     <div class="header-left">
       <span class="pulse-dot" aria-hidden="true"></span>
@@ -27,11 +28,22 @@
     </nav>
 
     <div class="header-right">
+      {% if me %}
+        <a href="/auth/me" class="user-chip" title="{{ me.email }}">
+          {% if me.avatar_url %}
+            <img src="{{ me.avatar_url }}" alt="" referrerpolicy="no-referrer">
+          {% else %}
+            <span class="user-chip-initial">{{ me.name[0]|upper }}</span>
+          {% endif %}
+          <span class="user-chip-name">{{ me.name }}</span>
+        </a>
+        <a href="/auth/logout" class="nav-link" title="Sign out">↩</a>
+      {% else %}
+        <a href="/auth/google/login?next={{ path }}" class="nav-link nav-login">Sign in</a>
+      {% endif %}
       {% if is_admin %}
         <span class="admin-badge" title="Signed in as admin">Admin</span>
         <a href="/admin/logout" class="nav-link nav-exit" title="Clear admin cookie. Close tab to fully drop browser credentials.">Logout</a>
-      {% else %}
-        <span class="version-stamp">v1 · live</span>
       {% endif %}
     </div>
   </header>

@@ -35,6 +35,10 @@ class ForumThread(Base):
 
     author_name: Mapped[str] = mapped_column(String(64), nullable=False)
     author_token: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Set when an authenticated user posts; null for anon posts.
+    author_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
 
     upvotes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reply_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -67,6 +71,9 @@ class ForumPost(Base):
 
     author_name: Mapped[str] = mapped_column(String(64), nullable=False)
     author_token: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    author_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
