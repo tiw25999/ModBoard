@@ -28,7 +28,7 @@
       {% if thread.locked %}<span class="locked-flag">🔒 locked</span>{% endif %}
     </div>
     <div class="thread-meta">
-      opened by <b>{{ thread.author_name }}</b>
+      opened by <b {% if thread.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ thread.author_name }}</b>
       · {{ thread.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
     </div>
 
@@ -69,7 +69,9 @@
     {% for p in posts %}
     <li class="reply" id="post-{{ p.id }}">
       <div class="reply-meta">
-        <span class="reply-author"><b>{{ p.author_name }}</b></span>
+        <span class="reply-author">
+          <b {% if p.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ p.author_name }}</b>
+        </span>
         <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
       </div>
       <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
@@ -90,10 +92,18 @@
   <form method="post" action="/forum/{{ thread.id }}/reply" class="forum-form">
     <input type="text" name="website" tabindex="-1" autocomplete="off"
            style="position:absolute;left:-9999px" aria-hidden="true">
-    <div class="field">
-      <label>Your name</label>
-      <input class="input" type="text" name="author_name" maxlength="64" required>
-    </div>
+    {% if is_admin %}
+      <div class="dev-reply-banner">
+        <span class="dev-badge">DEV</span>
+        <span>Replying as <b>Developer</b></span>
+      </div>
+      <input type="hidden" name="author_name" value="Developer">
+    {% else %}
+      <div class="field">
+        <label>Your name</label>
+        <input class="input" type="text" name="author_name" maxlength="64" required>
+      </div>
+    {% endif %}
     <div class="field">
       <label>Reply</label>
       <textarea class="input" name="body" rows="5" required minlength="10"></textarea>

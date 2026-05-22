@@ -10,7 +10,8 @@
 </head>
 <body>
   {% set path = request.url.path %}
-  {% set is_admin = path.startswith('/admin') %}
+  {% set on_admin_page = path.startswith('/admin') %}
+  {% set is_admin = request.cookies.get('mb_admin') == '1' %}
   <header>
     <div class="header-left">
       <span class="pulse-dot" aria-hidden="true"></span>
@@ -20,13 +21,13 @@
     <nav class="topnav">
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
       <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
-      <a href="/admin/mods" class="nav-link {% if is_admin %}is-active{% endif %}">Admin</a>
+      <a href="/admin/mods" class="nav-link {% if on_admin_page %}is-active{% endif %}">Admin</a>
     </nav>
 
     <div class="header-right">
       {% if is_admin %}
-        <span class="admin-badge" title="HTTP Basic — close tab to drop credentials">Admin</span>
-        <a href="/" class="nav-link nav-exit">Exit ↗</a>
+        <span class="admin-badge" title="Signed in as admin">Admin</span>
+        <a href="/admin/logout" class="nav-link nav-exit" title="Clear admin cookie. Close tab to fully drop browser credentials.">Logout</a>
       {% else %}
         <span class="version-stamp">v1 · live</span>
       {% endif %}
