@@ -55,7 +55,7 @@
         {% if t.locked %}<span class="locked-flag">🔒 locked</span>{% endif %}
       </div>
       <div class="thread-meta">
-        <span>by <b>{{ t.author_name }}</b></span>
+        <span>by <b {% if t.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ t.author_name }}</b></span>
         <span>·</span>
         <span>{{ t.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
         <span>·</span>

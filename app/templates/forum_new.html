@@ -19,13 +19,23 @@
   <input type="text" name="website" tabindex="-1" autocomplete="off"
          style="position:absolute;left:-9999px" aria-hidden="true">
 
+  {% if is_admin %}
+    <div class="dev-reply-banner">
+      <span class="dev-badge">DEV</span>
+      <span>Posting as <b>Developer</b></span>
+    </div>
+    <input type="hidden" name="author_name" value="Developer">
+  {% endif %}
+
   <div class="form-grid">
+    {% if not is_admin %}
     <div class="field">
       <label for="author_name">Your name</label>
       <input class="input" id="author_name" name="author_name" type="text"
              maxlength="64" required value="{{ form.author_name or '' }}">
       <p class="hint">No signup — used only for this thread</p>
     </div>
+    {% endif %}
 
     <div class="field">
       <label for="kind">Kind</label>

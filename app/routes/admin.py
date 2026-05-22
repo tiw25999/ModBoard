@@ -6,12 +6,27 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import Response
+
 from app.db import get_db
 from app.models import Mod
-from app.services.auth import require_admin
+from app.services.auth import ADMIN_COOKIE, require_admin
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
+# Routes that should NOT trigger an auth prompt (logout, etc.) live on a
+# separate router so they bypass the require_admin dependency.
+public_admin_router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="app/templates")
+
+
+@public_admin_router.get("/logout")
+async def logout():
+    """Best-effort admin logout. Clears the UI marker cookie and returns a
+    page that explains the Basic-auth limitation (browser must drop creds
+    on its own — usually by closing the tab)."""
+    response = RedirectResponse("/?logged_out=1", status_code=303)
+    response.delete_cookie(ADMIN_COOKIE, samesite="lax")
+    return response
 
 
 @router.get("/mods", response_class=HTMLResponse)

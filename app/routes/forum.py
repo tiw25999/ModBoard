@@ -21,8 +21,10 @@ from app.models import (
     Mod,
 )
 from app.services.anon import get_or_create_token, get_token
-from app.services.auth import require_admin
+from app.services.auth import admin_marker_present, require_admin
 from app.services.textfmt import is_likely_spam, render, slugify
+
+DEVELOPER_LABEL = "Developer"
 
 router = APIRouter(prefix="/forum")
 templates = Jinja2Templates(directory="app/templates")
@@ -49,19 +51,12 @@ async def _check_rate_limit(
 
 
 def _is_admin(request: Request) -> bool:
-    """Check Basic auth without raising — admin actions surface UI conditionally."""
-    auth = request.headers.get("authorization", "")
-    if not auth.startswith("Basic "):
-        return False
-    import base64
-
-    from app.config import settings
-    try:
-        decoded = base64.b64decode(auth[6:]).decode("utf-8")
-        user, _, password = decoded.partition(":")
-        return user == settings.admin_username and password == settings.admin_password
-    except Exception:
-        return False
+    """UI-level admin check used for: showing admin action buttons,
+    deciding whether to override author name to "Developer", etc.
+    Trust here is just for display labelling — the actual destructive
+    actions (pin/lock/status/delete) still go through require_admin
+    which re-verifies Basic auth on the request."""
+    return admin_marker_present(request)
 
 
 # ---------- list -----------------------------------------------------------
@@ -131,6 +126,7 @@ async def forum_new_form(
             "kinds": THREAD_KINDS,
             "form": {},
             "error": None,
+            "is_admin": _is_admin(request),
         },
     )
 
@@ -149,9 +145,13 @@ async def forum_new_submit(
 ):
     token = get_or_create_token(request, response)
     title = title.strip()[:256]
-    author_name = author_name.strip()[:64]
     body = body.strip()
     kind = kind if kind in THREAD_KINDS else "discussion"
+    # Admins post under a fixed "Developer" label instead of typing a name.
+    if _is_admin(request):
+        author_name = DEVELOPER_LABEL
+    else:
+        author_name = author_name.strip()[:64]
 
     reason = is_likely_spam(title, body, author_name, website)
     if reason:
@@ -166,6 +166,7 @@ async def forum_new_submit(
                 "kinds": THREAD_KINDS,
                 "form": {"title": title, "body": body, "author_name": author_name, "kind": kind, "mod_id": mod_id},
                 "error": reason,
+                "is_admin": _is_admin(request),
             },
             status_code=400,
         )
@@ -269,7 +270,10 @@ async def forum_reply(
         raise HTTPException(403, detail="Thread is locked")
 
     body = body.strip()
-    author_name = author_name.strip()[:64]
+    if _is_admin(request):
+        author_name = DEVELOPER_LABEL
+    else:
+        author_name = author_name.strip()[:64]
     reason = is_likely_spam("ok-reply-no-title-check", body, author_name, website)
     if reason:
         raise HTTPException(400, detail=reason)

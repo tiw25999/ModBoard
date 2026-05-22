@@ -1,16 +1,16 @@
 {% extends "base.html" %}
+{% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
 {% block title %}{{ mod.title or mod.name }} · Stats — ModBoard{% endblock %}
 {% block body %}
 
-<a href="/mod/{{ mod.id }}" class="back" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2);display:inline-flex;align-items:center;gap:8px;margin-bottom:var(--s-4)">
-  ← back to mod
-</a>
+{{ mod_pageheader(mod) }}
+{{ mod_tabs(mod, counts, 'stats') }}
 
 <section class="stats-head">
   <div class="left">
     <span class="eyebrow">Time Series</span>
     <h1 style="margin-top:10px">
-      {{ mod.title or mod.name }} <span class="accent">/</span> <span class="serif-accent">subscriber growth</span>
+      <span class="serif-accent">subscriber growth</span>
     </h1>
   </div>
   <div class="meta" style="font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--fg-2);text-align:right">
