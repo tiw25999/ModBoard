@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Notifications — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Inbox</span>
+    <h1>Your <span class="serif-accent">notifications</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Updates on threads you opened or replied to</span>
+    </div>
+  </div>
+  <div class="meta" style="display:flex;gap:var(--s-3);align-items:center;flex-wrap:wrap">
+    <a href="/auth/me" class="btn">← Profile</a>
+    {% if notes %}
+    <form method="post" action="/auth/me/notifications/clear" onsubmit="return confirm('Delete all notifications?');">
+      <button type="submit" class="btn">Clear all</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+{% if notes %}
+<ul class="notif-list">
+  {% for n in notes %}
+  {% set t = threads.get(n.thread_id) %}
+  <li class="notif-row notif-{{ n.kind }}">
+    <div class="notif-icon">
+      {% if n.kind == 'thread_reply' %}💬
+      {% elif n.kind == 'reply_to_reply' %}↩
+      {% elif n.kind == 'thread_status' %}🏷
+      {% elif n.kind == 'thread_locked' %}🔒
+      {% else %}🔔{% endif %}
+    </div>
+    <div class="notif-body">
+      <div class="notif-head">
+        {% if n.kind == 'thread_reply' %}
+          <b>{{ n.actor_name or 'someone' }}</b> replied to your thread
+          {% if t %}<a href="/forum/{{ t.id }}/{{ t.slug }}{% if n.post_id %}#post-{{ n.post_id }}{% endif %}">{{ t.title }}</a>{% endif %}
+        {% elif n.kind == 'reply_to_reply' %}
+          <b>{{ n.actor_name or 'someone' }}</b> replied in a thread you participated in
+          {% if t %}— <a href="/forum/{{ t.id }}/{{ t.slug }}{% if n.post_id %}#post-{{ n.post_id }}{% endif %}">{{ t.title }}</a>{% endif %}
+        {% elif n.kind == 'thread_status' %}
+          Status of your thread
+          {% if t %}<a href="/forum/{{ t.id }}/{{ t.slug }}">{{ t.title }}</a>{% endif %}
+          changed to <span class="status status-{{ n.payload }}">{{ n.payload }}</span>
+        {% elif n.kind == 'thread_locked' %}
+          Your thread {% if t %}<a href="/forum/{{ t.id }}/{{ t.slug }}">{{ t.title }}</a>{% endif %} was locked
+        {% else %}
+          {{ n.payload }}
+        {% endif %}
+      </div>
+      {% if n.payload and n.kind in ('thread_reply', 'reply_to_reply') %}
+      <div class="notif-snippet">{{ n.payload|truncate(160) }}</div>
+      {% endif %}
+      <div class="notif-when">{{ n.created_at.strftime("%b %d, %Y · %H:%M UTC") }}</div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="thread-empty">
+  No notifications yet. Open a forum thread or reply to one to start getting pinged.
+</div>
+{% endif %}
+
+{% endblock %}

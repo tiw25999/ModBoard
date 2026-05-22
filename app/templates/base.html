@@ -51,6 +51,12 @@
 
     <div class="header-right">
       {% if me %}
+        <a href="/auth/me/notifications" class="bell-btn {% if request.state.unread_count %}has-unread{% endif %}" title="Notifications" aria-label="Notifications">
+          <span class="bell-icon">🔔</span>
+          {% if request.state.unread_count %}
+            <span class="bell-count">{{ request.state.unread_count if request.state.unread_count < 100 else '99+' }}</span>
+          {% endif %}
+        </a>
         <a href="/auth/me" class="user-chip" title="{{ me.email }}">
           {% if me.avatar_url %}
             <img src="{{ me.avatar_url }}" alt="" referrerpolicy="no-referrer">

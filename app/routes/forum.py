@@ -19,6 +19,7 @@ from app.models import (
     ForumThread,
     ForumUpvote,
     Mod,
+    Notification,
 )
 from app.services.anon import get_or_create_token, get_token
 from app.services.auth import admin_marker_present, is_admin as _check_admin
@@ -311,6 +312,51 @@ async def forum_reply(
     thread.reply_count += 1
     thread.last_post_at = now
     thread.updated_at = now
+    await session.flush()  # gets post.id before notification rows reference it
+
+    # Notify the thread's author if they (a) have an account and (b) aren't
+    # the one replying. We don't notify anon thread authors — they have no
+    # inbox to read.
+    if thread.author_user_id and (not user or thread.author_user_id != user.id):
+        session.add(Notification(
+            user_id=thread.author_user_id,
+            kind="thread_reply",
+            thread_id=thread.id,
+            post_id=post.id,
+            actor_name=author_name,
+            payload=body[:200],
+            created_at=now,
+        ))
+
+    # Also notify everyone else who previously replied in the thread (so a
+    # conversation pings all participants, GitHub-issue style). Dedupe so
+    # the same person doesn't get N copies.
+    prev_repliers = (
+        await session.execute(
+            select(ForumPost.author_user_id)
+            .where(
+                ForumPost.thread_id == thread_id,
+                ForumPost.author_user_id.is_not(None),
+                ForumPost.id != post.id,
+            )
+            .distinct()
+        )
+    ).scalars().all()
+    already_notified = {thread.author_user_id, user.id if user else None}
+    for replier_id in prev_repliers:
+        if replier_id in already_notified:
+            continue
+        session.add(Notification(
+            user_id=replier_id,
+            kind="reply_to_reply",
+            thread_id=thread.id,
+            post_id=post.id,
+            actor_name=author_name,
+            payload=body[:200],
+            created_at=now,
+        ))
+        already_notified.add(replier_id)
+
     await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}#post-{post.id}", status_code=303)
 
@@ -418,8 +464,18 @@ async def forum_set_status(
     thread = await session.get(ForumThread, thread_id)
     if thread is None:
         raise HTTPException(404)
+    old_status = thread.status
     thread.status = status
     thread.updated_at = datetime.now(timezone.utc)
+    if thread.author_user_id and old_status != status:
+        session.add(Notification(
+            user_id=thread.author_user_id,
+            kind="thread_status",
+            thread_id=thread.id,
+            actor_name=DEVELOPER_LABEL,
+            payload=status,
+            created_at=thread.updated_at,
+        ))
     await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
 

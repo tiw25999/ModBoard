@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.db import get_db
-from app.models import ForumPost, ForumThread, User
+from app.models import ForumPost, ForumThread, Notification, User
 from app.services.auth import (
     clear_admin_session,
     is_admin,
@@ -218,3 +218,68 @@ async def me(
         request, "profile.html",
         {"user": user, "my_threads": my_threads, "my_replies": my_replies},
     )
+
+
+@router.get("/me/notifications", response_class=HTMLResponse)
+async def my_notifications(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Inbox page. Marks everything read on view — typical "go look at it"
+    semantics. (Could split into "unread / all" tabs later if needed.)"""
+    from datetime import datetime, timezone
+
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse("/auth/login?next=/auth/me/notifications", status_code=303)
+
+    notes_q = (
+        select(Notification)
+        .options(selectinload(Notification.thread).selectinload(ForumThread.mod))
+        if False
+        else select(Notification)  # selectinload of FK to ForumThread done below
+    )
+    notes = (
+        await session.execute(
+            select(Notification)
+            .where(Notification.user_id == user.id)
+            .order_by(desc(Notification.created_at))
+            .limit(100)
+        )
+    ).scalars().all()
+
+    # Eager-fetch related threads for display
+    thread_ids = {n.thread_id for n in notes if n.thread_id}
+    threads = {}
+    if thread_ids:
+        rows = (await session.execute(
+            select(ForumThread).where(ForumThread.id.in_(thread_ids))
+        )).scalars().all()
+        threads = {t.id: t for t in rows}
+
+    # Mark unread as read on view
+    now = datetime.now(timezone.utc)
+    for n in notes:
+        if n.read_at is None:
+            n.read_at = now
+    if notes:
+        await session.commit()
+
+    return templates.TemplateResponse(
+        request, "notifications.html",
+        {"user": user, "notes": notes, "threads": threads},
+    )
+
+
+@router.post("/me/notifications/clear")
+async def clear_notifications(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse("/auth/login", status_code=303)
+    from sqlalchemy import delete as _delete
+    await session.execute(_delete(Notification).where(Notification.user_id == user.id))
+    await session.commit()
+    return RedirectResponse("/auth/me/notifications", status_code=303)

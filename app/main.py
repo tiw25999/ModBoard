@@ -54,15 +54,17 @@ async def admin_gate(request: Request, call_next):
 
 @app.middleware("http")
 async def attach_current_user(request: Request, call_next):
-    """Look up the logged-in user + admin status once per request so
-    templates can read request.state.user / request.state.is_admin
-    without a per-template DB round-trip."""
+    """Look up the logged-in user + admin status + unread notification
+    count once per request so templates can read request.state.* without
+    per-template DB round-trips."""
     request.state.user = None
+    request.state.unread_count = 0
     request.state.is_admin = _is_admin_cookie(request)
     uid = session_user_id(request)
     if uid is not None:
+        from sqlalchemy import func, select as _select
+        from app.models import Notification, User
         async with SessionLocal() as db:
-            from app.models import User
             user = await db.get(User, uid)
             if user is not None:
                 request.state.user = {
@@ -71,6 +73,13 @@ async def attach_current_user(request: Request, call_next):
                     "email": user.email,
                     "avatar_url": user.avatar_url,
                 }
+                request.state.unread_count = int(
+                    (await db.execute(
+                        _select(func.count())
+                        .select_from(Notification)
+                        .where(Notification.user_id == user.id, Notification.read_at.is_(None))
+                    )).scalar() or 0
+                )
     return await call_next(request)
 
 
