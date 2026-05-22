@@ -25,6 +25,9 @@ class Mod(Base):
     comments: Mapped[list["ModComment"]] = relationship(
         back_populates="mod", cascade="all, delete-orphan"
     )
+    changelogs: Mapped[list["ModChangelog"]] = relationship(
+        back_populates="mod", cascade="all, delete-orphan"
+    )
 
 
 class ModSnapshot(Base):
@@ -71,3 +74,22 @@ class ModComment(Base):
     scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     mod: Mapped[Mod] = relationship(back_populates="comments")
+
+
+class ModChangelog(Base):
+    __tablename__ = "mod_changelogs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    mod_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("mods.id", ondelete="CASCADE"), index=True
+    )
+    post_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+
+    headline: Mapped[str | None] = mapped_column(String(256))
+    author_name: Mapped[str | None] = mapped_column(String(128))
+    author_profile_url: Mapped[str | None] = mapped_column(Text)
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    mod: Mapped[Mod] = relationship(back_populates="changelogs")

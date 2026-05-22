@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models import Mod, ModComment, ModSnapshot
+from app.models import Mod, ModChangelog, ModComment, ModSnapshot
+from app.services.bbcode import steam_bbcode_to_html
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -46,9 +47,23 @@ async def mod_detail(
             .limit(50)
         )
     ).scalars().all()
+    changelogs = (
+        await session.execute(
+            select(ModChangelog)
+            .where(ModChangelog.mod_id == mod_id)
+            .order_by(ModChangelog.posted_at.desc().nulls_last())
+            .limit(20)
+        )
+    ).scalars().all()
     return templates.TemplateResponse(
         request, "mod_detail.html",
-        {"mod": mod, "snap": snap, "comments": comments},
+        {
+            "mod": mod,
+            "snap": snap,
+            "comments": comments,
+            "changelogs": changelogs,
+            "description_html": steam_bbcode_to_html(mod.description),
+        },
     )
 
 

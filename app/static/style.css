@@ -706,6 +706,166 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   border-radius: var(--r-md);
 }
 
+/* shared section header for description / changelog */
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--s-4);
+  margin: var(--s-7) 0 var(--s-4);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--line);
+}
+.section-head .section-meta {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* ---------- description prose ---------- */
+.prose-section { margin-bottom: var(--s-5); }
+
+.prose {
+  color: var(--fg-1);
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 72ch;
+}
+.prose > * { margin: 0 0 var(--s-3); }
+.prose > *:last-child { margin-bottom: 0; }
+.prose h3, .prose h4, .prose h5 {
+  color: var(--fg-0);
+  font-family: var(--f-sans);
+  letter-spacing: -0.01em;
+  margin-top: var(--s-5);
+}
+.prose h3 { font-size: 17px; font-weight: 600; }
+.prose h4 {
+  font-size: 13px; font-weight: 600;
+  font-family: var(--f-mono); letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--amber);
+}
+.prose h5 { font-size: 14px; font-weight: 600; }
+.prose strong { color: var(--fg-0); font-weight: 600; }
+.prose em { color: var(--fg-0); }
+.prose a { color: var(--amber); border-bottom: 1px dotted var(--amber-soft); }
+.prose a:hover { border-bottom-color: var(--amber); }
+.prose ul, .prose ol { padding-left: var(--s-5); }
+.prose ul li, .prose ol li { margin-bottom: var(--s-2); }
+.prose ul li::marker { color: var(--amber-soft); }
+.prose hr {
+  border: 0; height: 1px; background: var(--line-2);
+  margin: var(--s-5) 0;
+}
+.prose blockquote {
+  margin: var(--s-3) 0;
+  padding: var(--s-3) var(--s-4);
+  border-left: 2px solid var(--amber);
+  background: rgba(255,181,71,0.04);
+  color: var(--fg-1);
+  font-style: italic;
+}
+.prose pre {
+  background: var(--ink-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--s-3);
+  overflow-x: auto;
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+}
+.prose code { font-family: var(--f-mono); color: var(--fg-0); }
+.prose img { max-width: 100%; border-radius: var(--r-sm); border: 1px solid var(--line); }
+
+/* ---------- changelog list ---------- */
+.changelog-section { margin-bottom: var(--s-5); }
+
+.changelog-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--s-3);
+  counter-reset: changelog;
+}
+
+.changelog-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-4) var(--s-5);
+  background: linear-gradient(180deg, var(--ink-1), #0b0d11);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--amber-soft);
+  border-radius: var(--r-md);
+}
+
+.changelog-entry:hover { border-left-color: var(--amber); }
+
+.changelog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.changelog-date {
+  font-family: var(--f-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg-0);
+  letter-spacing: 0.04em;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.changelog-date .time {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 400;
+}
+
+.changelog-author {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.changelog-author a { color: var(--fg-1); }
+
+.changelog-body {
+  color: var(--fg-1);
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--s-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.changelog-body a { color: var(--amber); border-bottom: 1px dotted var(--amber-soft); }
+.changelog-body br + br { display: none; }   /* tame double <br> chains */
+
+@media (max-width: 720px) {
+  .changelog-entry {
+    grid-template-columns: 1fr;
+    gap: var(--s-3);
+  }
+  .changelog-meta {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--s-3);
+    padding-bottom: var(--s-2);
+    border-bottom: 1px dashed var(--line);
+  }
+  .changelog-date { flex-direction: row; align-items: baseline; gap: var(--s-2); }
+}
+
 /* ===========================================================
    STATS PAGE
    =========================================================== */

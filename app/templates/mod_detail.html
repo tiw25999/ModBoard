@@ -83,14 +83,48 @@
     <div class="thread-empty" style="margin-bottom:var(--s-6)">No snapshot recorded yet — waiting on first poll</div>
     {% endif %}
 
-    {% if mod.description %}
-    <section style="margin-bottom:var(--s-7)">
-      <h3 class="eyebrow" style="display:flex">About</h3>
-      <p style="color:var(--fg-1); font-size:15px; line-height:1.7; margin:var(--s-3) 0 0">
-        {{ mod.description }}
-      </p>
+    {% if description_html %}
+    <section class="prose-section">
+      <div class="section-head">
+        <span class="eyebrow">About</span>
+        <span class="section-meta">workshop description</span>
+      </div>
+      <div class="prose">{{ description_html|safe }}</div>
     </section>
     {% endif %}
+
+    <section class="changelog-section">
+      <div class="section-head">
+        <span class="eyebrow">Changelog</span>
+        <span class="section-meta">{{ changelogs|length }} release{{ "" if changelogs|length == 1 else "s" }}</span>
+      </div>
+      {% if changelogs %}
+      <ol class="changelog-list">
+        {% for ch in changelogs %}
+        <li class="changelog-entry">
+          <div class="changelog-meta">
+            <time class="changelog-date">
+              {% if ch.posted_at %}
+                {{ ch.posted_at.strftime("%Y-%m-%d") }}
+                <span class="time">{{ ch.posted_at.strftime("%H:%M UTC") }}</span>
+              {% else %}
+                {{ ch.headline or "Update" }}
+              {% endif %}
+            </time>
+            {% if ch.author_name %}
+            <span class="changelog-author">
+              by {% if ch.author_profile_url %}<a href="{{ ch.author_profile_url }}" target="_blank" rel="noopener">{{ ch.author_name }}</a>{% else %}{{ ch.author_name }}{% endif %}
+            </span>
+            {% endif %}
+          </div>
+          <div class="changelog-body">{{ ch.body_html|safe }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <div class="thread-empty">No release notes yet</div>
+      {% endif %}
+    </section>
 
     <section>
       <div class="thread-head">
