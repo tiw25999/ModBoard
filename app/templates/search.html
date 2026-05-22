@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{% if q %}{{ q }} · search{% else %}Search{% endif %} — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Search</span>
+    <h1>{% if q %}{{ total }} <span class="serif-accent">result{{ "" if total == 1 else "s" }} for</span> "{{ q }}"{% else %}Find <span class="serif-accent">anything</span>{% endif %}</h1>
+  </div>
+  <div class="meta"></div>
+</section>
+
+<form method="get" action="/search" class="search-bar">
+  <input type="text" name="q" class="input search-input" value="{{ q|e }}"
+         placeholder="Search mods, threads, comments, changelogs…" autofocus minlength="2">
+  <button type="submit" class="btn primary">Search</button>
+</form>
+
+{% if q and total == 0 %}
+<div class="thread-empty">No matches. Try a shorter or different term.</div>
+{% endif %}
+
+{% if results.mods %}
+<section class="search-section">
+  <div class="section-head">
+    <span class="eyebrow">Mods</span>
+    <span class="section-meta">{{ results.mods|length }} match{{ "" if results.mods|length == 1 else "es" }}</span>
+  </div>
+  <ul class="search-list">
+    {% for m in results.mods %}
+    <li class="search-item">
+      <a href="/mod/{{ m.id }}" class="search-link">
+        {% if m.thumbnail_url %}<img class="search-thumb" src="{{ m.thumbnail_url }}" alt="" loading="lazy">{% endif %}
+        <div class="search-body">
+          <h3 class="search-title">{{ m.title or m.name }}</h3>
+          <div class="search-meta">
+            <span class="dash-game-pill">{{ m.app_name or "—" }}</span>
+            <span>· {{ m.name }}</span>
+            <span>· id {{ m.id }}</span>
+          </div>
+          {% if m.description %}<p class="search-snippet">{{ m.description|striptags|truncate(180) }}</p>{% endif %}
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.threads %}
+<section class="search-section">
+  <div class="section-head">
+    <span class="eyebrow">Forum threads</span>
+    <span class="section-meta">{{ results.threads|length }} match{{ "" if results.threads|length == 1 else "es" }}</span>
+  </div>
+  <ul class="search-list">
+    {% for t in results.threads %}
+    <li class="search-item">
+      <a href="/forum/{{ t.id }}/{{ t.slug }}" class="search-link">
+        <div class="search-body">
+          <h3 class="search-title">
+            <span class="kind kind-{{ t.kind }}" style="margin-right:8px;font-size:9px;padding:2px 6px;border-radius:3px">{{ t.kind }}</span>
+            {{ t.title }}
+          </h3>
+          <div class="search-meta">
+            by <b>{{ t.author_name }}</b>
+            · {{ t.created_at.strftime("%Y-%m-%d") }}
+            · {{ t.reply_count }} replies
+            · {{ t.upvotes }} ▲
+            {% if t.mod %}· about <span class="dash-game-pill">{{ t.mod.title or t.mod.name }}</span>{% endif %}
+          </div>
+          <p class="search-snippet">{{ t.body_raw|truncate(180) }}</p>
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.comments %}
+<section class="search-section">
+  <div class="section-head">
+    <span class="eyebrow">Workshop comments</span>
+    <span class="section-meta">{{ results.comments|length }} match{{ "" if results.comments|length == 1 else "es" }}</span>
+  </div>
+  <ul class="search-list">
+    {% for c in results.comments %}
+    <li class="search-item">
+      <a href="/mod/{{ c.mod_id }}/comments" class="search-link">
+        <div class="search-body">
+          <div class="search-meta">
+            <b>{{ c.author_name or "anon" }}</b> on <b>{{ c.mod.title or c.mod.name if c.mod else c.mod_id }}</b>
+            {% if c.posted_at %}· {{ c.posted_at.strftime("%Y-%m-%d") }}{% endif %}
+          </div>
+          <p class="search-snippet">{{ c.body_html|striptags|truncate(220) }}</p>
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.discussions %}
+<section class="search-section">
+  <div class="section-head">
+    <span class="eyebrow">Steam discussions</span>
+    <span class="section-meta">{{ results.discussions|length }} match{{ "" if results.discussions|length == 1 else "es" }}</span>
+  </div>
+  <ul class="search-list">
+    {% for d in results.discussions %}
+    <li class="search-item">
+      <a href="/mod/{{ d.mod_id }}/discussions" class="search-link">
+        <div class="search-body">
+          <h3 class="search-title">{{ d.title }}</h3>
+          <div class="search-meta">
+            by <b>{{ d.author_name or "?" }}</b>
+            · {{ d.reply_count or 0 }} replies
+            · on <b>{{ d.mod.title or d.mod.name if d.mod else d.mod_id }}</b>
+          </div>
+          {% if d.body_preview %}<p class="search-snippet">{{ d.body_preview|truncate(200) }}</p>{% endif %}
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.changelogs %}
+<section class="search-section">
+  <div class="section-head">
+    <span class="eyebrow">Changelogs</span>
+    <span class="section-meta">{{ results.changelogs|length }} match{{ "" if results.changelogs|length == 1 else "es" }}</span>
+  </div>
+  <ul class="search-list">
+    {% for ch in results.changelogs %}
+    <li class="search-item">
+      <a href="/mod/{{ ch.mod_id }}/changelog" class="search-link">
+        <div class="search-body">
+          <h3 class="search-title">{{ ch.headline or "Update" }}</h3>
+          <div class="search-meta">
+            on <b>{{ ch.mod.title or ch.mod.name if ch.mod else ch.mod_id }}</b>
+            {% if ch.posted_at %}· {{ ch.posted_at.strftime("%Y-%m-%d") }}{% endif %}
+          </div>
+          <p class="search-snippet">{{ ch.body_html|striptags|truncate(200) }}</p>
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% endblock %}
