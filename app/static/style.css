@@ -1754,20 +1754,137 @@ select.input {
   display: flex; gap: 6px;
 }
 
-/* ---------- donate page ---------- */
-.donate-grid {
+/* ---------- donate page — 5-tier Stripe ladder ---------- */
+.tip-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--s-4);
-  margin: var(--s-5) 0;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--s-3);
+  margin: var(--s-5) 0 var(--s-4);
 }
-/* When there are only 2 cards, cap the grid so each card doesn't end up
-   the width of half the viewport (looks awkward on wide monitors). */
-.donate-grid-two {
-  grid-template-columns: repeat(2, 1fr);
-  max-width: 720px;
+@media (max-width: 1080px) { .tip-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .tip-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px)  { .tip-grid { grid-template-columns: 1fr; } }
+
+.tip-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: var(--s-5) var(--s-3) var(--s-4);
+  background: linear-gradient(180deg, var(--ink-1), #0b0d11);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: inherit;
+  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  overflow: hidden;
 }
-@media (max-width: 640px) { .donate-grid-two { grid-template-columns: 1fr; } }
+.tip-card:hover {
+  border-color: var(--amber);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px -16px rgba(255,181,71,0.4);
+}
+.tip-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--fg-3);
+  transition: background .15s ease;
+}
+.tip-card:hover::before { background: var(--amber); }
+
+.tier-coffee::before  { background: #8a6f4a; }
+.tier-snack::before   { background: #b58c5e; }
+.tier-lunch::before   { background: var(--moss); }
+.tier-big::before     { background: var(--amber); }
+.tier-sponsor::before { background: var(--rust); }
+
+/* Featured tier — Big tip — stands out by default */
+.tier-featured {
+  background: linear-gradient(180deg, rgba(255,181,71,0.06), #0b0d11);
+  border-color: rgba(255,181,71,0.3);
+}
+.tier-featured::before { background: var(--amber); height: 3px; }
+
+.tip-badge {
+  position: absolute;
+  top: 8px; right: 8px;
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  background: var(--amber);
+  color: var(--ink-0);
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.tip-emoji {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 6px;
+  filter: grayscale(15%);
+}
+
+.tip-amount {
+  font-family: var(--f-mono);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fg-0);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.tip-name {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.tip-tag {
+  font-size: 12px;
+  color: var(--fg-2);
+  line-height: 1.4;
+  min-height: 34px;
+  max-width: 18ch;
+  margin: var(--s-2) 0;
+}
+
+.tip-cta {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-top: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  transition: background .15s ease, border-color .15s ease;
+}
+.tip-card:hover .tip-cta {
+  background: var(--amber);
+  color: var(--ink-0);
+  border-color: var(--amber);
+}
+
+.tip-trust {
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  margin: 0 0 var(--s-7);
+  letter-spacing: 0.04em;
+}
+.tip-trust a { color: var(--fg-2); border-bottom: 1px dotted var(--fg-3); }
+.tip-trust a:hover { color: var(--amber); border-bottom-color: var(--amber); }
 .donate-card {
   display: flex;
   flex-direction: column;
