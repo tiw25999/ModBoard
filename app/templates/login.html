@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Sign in — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Account</span>
+    <h1>Sign <span class="serif-accent">in</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Forum posts work without signing in — login just adds a profile and persistent identity</span>
+    </div>
+  </div>
+  <div class="meta"></div>
+</section>
+
+{% if error %}
+<div class="form-error">⚠ {{ error }}</div>
+{% endif %}
+
+<div class="login-grid">
+  <!-- Google login (for regular users) -->
+  <section class="login-card">
+    <div class="login-card-head">
+      <span class="login-eyebrow">For viewers · forum users</span>
+      <h2 class="login-card-title">Continue with <span class="serif-accent">Google</span></h2>
+      <p class="login-card-desc">
+        Get a profile page, attribute your forum posts to your real name, and edit
+        them later. Anon posting still works without an account.
+      </p>
+    </div>
+    {% if google_enabled %}
+      <a href="/auth/google/login?next={{ next|urlencode }}" class="btn btn-google">
+        <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+          <path fill="#fff" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.85a4.13 4.13 0 0 1-1.8 2.72v2.26h2.92c1.71-1.58 2.7-3.9 2.7-6.62z"/>
+          <path fill="#fff" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.32A9 9 0 0 0 9 18z" opacity=".85"/>
+          <path fill="#fff" d="M3.97 10.72A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3.01-2.32z" opacity=".7"/>
+          <path fill="#fff" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59A9 9 0 0 0 9 0a9 9 0 0 0-8.04 4.96l3.01 2.32C4.68 5.16 6.66 3.58 9 3.58z" opacity=".55"/>
+        </svg>
+        Continue with Google
+      </a>
+    {% else %}
+      <div class="login-disabled-note">
+        Google sign-in is not configured. Set <code>GOOGLE_CLIENT_ID</code> and
+        <code>GOOGLE_CLIENT_SECRET</code> in <code>.env</code>.
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- Admin login (for site operator) -->
+  <section class="login-card login-card-admin">
+    <div class="login-card-head">
+      <span class="login-eyebrow">For site operator</span>
+      <h2 class="login-card-title">Admin <span class="serif-accent">access</span></h2>
+      <p class="login-card-desc">
+        Manage mods, set forum thread status, pin/lock threads, trigger polls.
+        Single-user — credentials live in <code>.env</code>.
+      </p>
+    </div>
+    <form method="post" action="/auth/admin/login" class="forum-form" style="margin-top:var(--s-4);background:transparent;border:none;padding:0">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field">
+        <label for="username">Username</label>
+        <input class="input" id="username" name="username" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn primary">Sign in as admin</button>
+    </form>
+  </section>
+</div>
+
+{% endblock %}

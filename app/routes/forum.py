@@ -21,11 +21,19 @@ from app.models import (
     Mod,
 )
 from app.services.anon import get_or_create_token, get_token
-from app.services.auth import admin_marker_present, require_admin
+from app.services.auth import admin_marker_present, is_admin as _check_admin
 from app.services.session import current_user
 from app.services.textfmt import is_likely_spam, render, slugify
 
 DEVELOPER_LABEL = "Developer"
+
+
+def require_admin_or_403(request: Request):
+    """Replacement for the old Basic-auth Depends. Throws 403 on miss
+    instead of triggering a Basic prompt — callers reach these via
+    in-page admin forms, and the login flow lives on /auth/login."""
+    if not _check_admin(request):
+        raise HTTPException(403, detail="Admin only — sign in at /auth/login")
 
 router = APIRouter(prefix="/forum")
 templates = Jinja2Templates(directory="app/templates")
@@ -399,7 +407,7 @@ async def forum_thread_delete(
 
 # ---------- admin actions (Basic auth) -------------------------------------
 
-@router.post("/{thread_id}/status", dependencies=[Depends(require_admin)])
+@router.post("/{thread_id}/status", dependencies=[Depends(require_admin_or_403)])
 async def forum_set_status(
     thread_id: int,
     status: str = Form(...),
@@ -416,7 +424,7 @@ async def forum_set_status(
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
 
 
-@router.post("/{thread_id}/pin", dependencies=[Depends(require_admin)])
+@router.post("/{thread_id}/pin", dependencies=[Depends(require_admin_or_403)])
 async def forum_toggle_pin(
     thread_id: int,
     session: AsyncSession = Depends(get_db),
@@ -429,7 +437,7 @@ async def forum_toggle_pin(
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
 
 
-@router.post("/{thread_id}/lock", dependencies=[Depends(require_admin)])
+@router.post("/{thread_id}/lock", dependencies=[Depends(require_admin_or_403)])
 async def forum_toggle_lock(
     thread_id: int,
     session: AsyncSession = Depends(get_db),

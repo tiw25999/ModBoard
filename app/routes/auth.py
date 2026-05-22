@@ -1,9 +1,9 @@
-"""Auth routes — Google OAuth login, profile page, logout."""
+"""Auth routes — unified /auth/login (Google + admin form), profile, logout."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, select
@@ -13,6 +13,12 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.db import get_db
 from app.models import ForumPost, ForumThread, User
+from app.services.auth import (
+    clear_admin_session,
+    is_admin,
+    set_admin_session,
+    verify_admin_credentials,
+)
 from app.services.oauth_google import (
     OAUTH_NEXT_COOKIE,
     OAUTH_STATE_COOKIE,
@@ -25,11 +31,59 @@ from app.services.session import (
     SESSION_MAX_AGE,
     clear_session,
     current_user,
+    session_user_id,
     set_session,
 )
 
 router = APIRouter(prefix="/auth")
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _safe_next(value: str | None) -> str:
+    if value and value.startswith("/") and not value.startswith("//"):
+        return value
+    return "/"
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(
+    request: Request,
+    next: str = "/",
+    error: str | None = None,
+):
+    return templates.TemplateResponse(
+        request, "login.html",
+        {
+            "next": _safe_next(next),
+            "error": error,
+            "google_enabled": settings.google_oauth_enabled,
+        },
+    )
+
+
+@router.post("/admin/login")
+async def admin_login_submit(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/admin"),
+):
+    if not verify_admin_credentials(username.strip(), password):
+        return RedirectResponse(
+            f"/auth/login?error=Invalid+admin+credentials&next={_safe_next(next)}",
+            status_code=303,
+        )
+    response = RedirectResponse(_safe_next(next), status_code=303)
+    set_admin_session(response)
+    return response
+
+
+@router.post("/admin/logout")
+@router.get("/admin/logout")
+async def admin_logout():
+    response = RedirectResponse("/", status_code=303)
+    clear_admin_session(response)
+    return response
 
 
 @router.get("/google/login")
@@ -122,9 +176,14 @@ async def google_callback(
 
 
 @router.get("/logout")
+@router.post("/logout")
 async def logout():
+    """Single Logout endpoint that clears both the user session cookie
+    and the admin session cookie. Used by the nav Logout link regardless
+    of which identity(ies) are signed in."""
     response = RedirectResponse("/", status_code=303)
     clear_session(response)
+    clear_admin_session(response)
     return response
 
 

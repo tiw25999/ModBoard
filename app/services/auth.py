@@ -1,62 +1,61 @@
-import base64
+"""Admin auth — signed cookie + form login.
+
+Replaces the older HTTP Basic flow. The form at /auth/login posts
+credentials to /auth/admin/login which verifies against settings and
+stamps a signed `mb_admin` cookie. Middleware enforces presence of
+the cookie on /admin/* paths and redirects to /auth/login otherwise.
+"""
+from __future__ import annotations
+
 import secrets
 
-from fastapi import Depends, HTTPException, Response, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Request, Response
+from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 
 from app.config import settings
 
-security = HTTPBasic()
-
-# UI-only marker cookie set after a successful admin Basic auth. The cookie
-# itself doesn't grant access — every protected route still re-checks
-# Basic auth via require_admin. We just use the cookie to render the
-# "Admin Mode" badge + Exit link on non-/admin pages where the browser
-# wouldn't normally send the Basic auth header.
 ADMIN_COOKIE = "mb_admin"
 ADMIN_COOKIE_MAX_AGE = 60 * 60 * 8  # 8 hours
 
 
-def require_admin(
-    response: Response,
-    creds: HTTPBasicCredentials = Depends(security),
-) -> str:
-    ok_user = secrets.compare_digest(creds.username, settings.admin_username)
-    ok_pass = secrets.compare_digest(creds.password, settings.admin_password)
-    if not (ok_user and ok_pass):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+def _signer() -> TimestampSigner:
+    return TimestampSigner(settings.session_secret, salt="mb_admin.v2")
+
+
+def verify_admin_credentials(username: str, password: str) -> bool:
+    return (
+        secrets.compare_digest(username, settings.admin_username)
+        and secrets.compare_digest(password, settings.admin_password)
+    )
+
+
+def set_admin_session(response: Response) -> None:
+    token = _signer().sign(b"admin").decode()
     response.set_cookie(
         ADMIN_COOKIE,
-        "1",
+        token,
         max_age=ADMIN_COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
         secure=False,
     )
-    return creds.username
 
 
-def admin_marker_present(request) -> bool:
-    """Cheap check the templates use — does the request carry the marker
-    cookie? Display-level only; never use this to gate a destructive action."""
-    return request.cookies.get(ADMIN_COOKIE) == "1"
+def clear_admin_session(response: Response) -> None:
+    response.delete_cookie(ADMIN_COOKIE, samesite="lax")
 
 
-def check_basic_admin_header(authorization: str | None) -> bool:
-    """Validate the Basic auth header without raising. Used by middleware
-    to set the marker cookie after a successful admin request."""
-    if not authorization or not authorization.startswith("Basic "):
+def is_admin(request: Request) -> bool:
+    raw = request.cookies.get(ADMIN_COOKIE)
+    if not raw:
         return False
     try:
-        decoded = base64.b64decode(authorization[6:]).decode("utf-8")
-        user, _, password = decoded.partition(":")
-    except Exception:
+        _signer().unsign(raw.encode(), max_age=ADMIN_COOKIE_MAX_AGE)
+        return True
+    except (BadSignature, SignatureExpired):
         return False
-    return (
-        secrets.compare_digest(user, settings.admin_username)
-        and secrets.compare_digest(password, settings.admin_password)
-    )
+
+
+def admin_marker_present(request: Request) -> bool:
+    """Back-compat alias used in a few spots (forum DEV label decisions)."""
+    return is_admin(request)
