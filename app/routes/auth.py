@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -155,13 +156,26 @@ async def google_callback(
             last_login_at=now,
         )
         session.add(user)
+        try:
+            await session.commit()
+        except IntegrityError:
+            # Two simultaneous first-logins for the same Google account
+            # both missed the SELECT above. The unique constraint on
+            # google_sub catches one — pick up the winner's row instead
+            # of returning 500.
+            await session.rollback()
+            user = (
+                await session.execute(select(User).where(User.google_sub == sub))
+            ).scalar_one()
+            user.last_login_at = now
+            await session.commit()
     else:
         # Refresh profile fields in case the user updated them on Google's side
         user.email = email
         user.name = info.get("name") or user.name
         user.avatar_url = info.get("picture") or user.avatar_url
         user.last_login_at = now
-    await session.commit()
+        await session.commit()
     await session.refresh(user)
 
     next_path = request.cookies.get(OAUTH_NEXT_COOKIE) or "/"
@@ -175,7 +189,6 @@ async def google_callback(
     return response
 
 
-@router.get("/logout")
 @router.post("/logout")
 async def logout():
     """Single Logout endpoint that clears both the user session cookie

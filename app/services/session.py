@@ -6,8 +6,6 @@ client can't forge it.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import Request, Response
 from itsdangerous import BadSignature, TimestampSigner
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,10 +52,8 @@ async def current_user(request: Request, session: AsyncSession) -> User | None:
     uid = session_user_id(request)
     if uid is None:
         return None
-    user = await session.get(User, uid)
-    if user is None:
-        return None
-    # Track last activity for "who's been around" displays (cheap; no commit
-    # needed inline — gets persisted on the next user-driven write)
-    user.last_login_at = datetime.now(timezone.utc)
-    return user
+    return await session.get(User, uid)
+    # Note: we deliberately do NOT touch user.last_login_at here. Doing so
+    # silently flips the row dirty and either piggybacks on an unrelated
+    # commit later in the request, or gets silently dropped — making the
+    # field non-deterministic. It's now updated only at OAuth login time.

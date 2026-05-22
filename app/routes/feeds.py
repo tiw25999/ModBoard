@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.db import get_db
 from app.models import ForumThread, Mod, ModChangelog, ModComment, NewsPost
 from app.services.cache import cached
@@ -22,6 +23,13 @@ router = APIRouter()
 
 def _esc(s: str | None) -> str:
     return _html.escape(s or "", quote=True)
+
+
+def _cdata(s: str | None) -> str:
+    """Wrap a string in CDATA. Defangs any embedded `]]>` so a crafted
+    comment can't close the section early and inject feed-reader markup."""
+    body = (s or "").replace("]]>", "]]]]><![CDATA[>")
+    return f"<![CDATA[{body}]]>"
 
 
 def _rfc822(dt: datetime | None) -> str:
@@ -50,7 +58,7 @@ def _rss(title: str, link: str, description: str, items: list[dict]) -> str:
             f'<link>{_esc(it["link"])}</link>',
             f'<guid isPermaLink="true">{_esc(it["link"])}</guid>',
             f'<pubDate>{_rfc822(it.get("pub_date"))}</pubDate>',
-            f'<description><![CDATA[{it.get("body", "")}]]></description>',
+            f'<description>{_cdata(it.get("body", ""))}</description>',
             '</item>',
         ])
     body.extend(['</channel>', '</rss>'])
@@ -58,6 +66,10 @@ def _rss(title: str, link: str, description: str, items: list[dict]) -> str:
 
 
 def _base(request: Request) -> str:
+    # Prefer the configured canonical URL so an attacker can't poison
+    # our cached feed XML by sending a spoofed Host header to the origin.
+    if settings.canonical_base:
+        return settings.canonical_base.rstrip("/")
     return f"{request.url.scheme}://{request.url.netloc}"
 
 

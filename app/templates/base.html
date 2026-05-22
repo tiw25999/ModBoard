@@ -89,7 +89,11 @@
       {% endif %}
 
       {% if me or is_admin %}
-        <a href="/auth/logout" class="nav-link nav-exit" title="Sign out of all sessions">Logout</a>
+        {# POST-only so a malicious page can't log the user out via <a href> CSRF #}
+        <form method="post" action="/auth/logout" style="display:inline">
+          <button type="submit" class="nav-link nav-exit" title="Sign out of all sessions"
+                  style="background:none;border:none;font:inherit;cursor:pointer;padding:0">Logout</button>
+        </form>
       {% else %}
         <a href="/auth/login?next={{ path }}" class="nav-link nav-login">Sign in</a>
       {% endif %}

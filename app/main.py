@@ -50,6 +50,50 @@ app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
 
 
+# ---- Security headers ---------------------------------------------------
+# Set on every response. CSP is moderately strict (img-src https: allows
+# Steam + Google avatars; 'unsafe-inline' is required for our inline
+# JSON-LD blocks + the SW registration <script> in base.html). frame-
+# ancestors 'none' kills clickjacking; X-Content-Type-Options stops MIME
+# sniffing; Referrer-Policy trims leakage; Permissions-Policy disables
+# sensor APIs we never use.
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "img-src 'self' https: data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "upgrade-insecure-requests"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for k, v in _SECURITY_HEADERS.items():
+        response.headers.setdefault(k, v)
+    # HSTS only on real production (cookies-Secure flag tracks the same
+    # thing). Cloudflare will also set this, but defense in depth is free.
+    from app.config import settings as _s
+    if _s.production:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=63072000; includeSubDomains; preload",
+        )
+    return response
+
+
 @app.middleware("http")
 async def admin_gate(request: Request, call_next):
     """Anything under /admin/* requires the signed mb_admin cookie set by
@@ -69,6 +113,13 @@ async def attach_current_user(request: Request, call_next):
     request.state.user = None
     request.state.unread_count = 0
     request.state.is_admin = _is_admin_cookie(request)
+    request.state.banner = None
+    # Skip the per-request DB round-trip for static assets and the
+    # health probe — both run every few seconds and never need user
+    # context.
+    path = request.url.path
+    if path.startswith("/static") or path == "/health":
+        return await call_next(request)
     uid = session_user_id(request)
     if uid is not None:
         from sqlalchemy import func, select as _select

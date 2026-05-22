@@ -5,6 +5,8 @@ from typing import TypedDict
 import httpx
 from bs4 import BeautifulSoup, Tag
 
+from app.services.sanitize import clean_steam_html
+
 
 PAGE_URL = "https://steamcommunity.com/sharedfiles/filedetails/?id={mod_id}"
 COMMENT_URL = (
@@ -98,7 +100,9 @@ def _parse_comments_html(html: str) -> list[ScrapedComment]:
                 posted_at = datetime.fromtimestamp(int(ts_raw), tz=timezone.utc)
 
         body_node = node.select_one("div.commentthread_comment_text")
-        body_html = body_node.decode_contents().strip() if isinstance(body_node, Tag) else ""
+        body_html = clean_steam_html(
+            body_node.decode_contents().strip() if isinstance(body_node, Tag) else ""
+        )
 
         out.append({
             "comment_id": cid,
@@ -179,7 +183,7 @@ async def fetch_changelog(mod_id: int) -> list[ScrapedChangelog]:
             href = author_node.get("href")
             author_url = href if isinstance(href, str) else None
         posted_at = _parse_changelog_headline(headline or "")
-        body_html = body_p.decode_contents().strip()
+        body_html = clean_steam_html(body_p.decode_contents().strip())
         out.append({
             "post_id": post_id,
             "headline": headline,

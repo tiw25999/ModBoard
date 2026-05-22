@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     # set PRODUCTION=true in its .env.
     production: bool = False
 
+    # Canonical public URL — used to build absolute URLs in RSS feeds,
+    # sitemaps, and JSON-LD instead of trusting the incoming Host header
+    # (which an attacker could spoof to poison cached feed XML). Leave
+    # blank in dev and we'll fall back to the request's host.
+    # Example: "https://workshopmods.org"
+    canonical_base: str = ""
+
     @property
     def google_oauth_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)

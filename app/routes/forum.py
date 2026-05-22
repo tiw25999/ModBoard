@@ -198,6 +198,10 @@ async def forum_new_submit(
         author_name = (user.name or user.email.split("@")[0])[:64]
     else:
         author_name = author_name.strip()[:64]
+    # Never let a non-admin masquerade as Developer (the label is a
+    # trust signal in the UI; impersonating it is account-fraud-tier).
+    if not _is_admin(request) and author_name.strip().lower() == DEVELOPER_LABEL.lower():
+        author_name = "anon"
 
     reason = is_likely_spam(title, body, author_name, website)
     if reason:
@@ -356,6 +360,8 @@ async def forum_reply(
         author_name = (user.name or user.email.split("@")[0])[:64]
     else:
         author_name = author_name.strip()[:64]
+    if not _is_admin(request) and author_name.strip().lower() == DEVELOPER_LABEL.lower():
+        author_name = "anon"
     reason = is_likely_spam("ok-reply-no-title-check", body, author_name, website)
     if reason:
         raise HTTPException(400, detail=reason)

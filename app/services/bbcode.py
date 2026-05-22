@@ -14,6 +14,20 @@ import re
 
 _HEADER_MAP = {"h1": "h3", "h2": "h4", "h3": "h5"}
 
+# Scheme allowlist for [url=...] and [img] BBCode tags. Anything else
+# (notably `javascript:`, `data:`, `vbscript:`) gets neutered to "#"
+# to prevent stored XSS when a malicious Steam Workshop author drops
+# `[url=javascript:alert(document.cookie)]click[/url]` into their
+# mod description.
+_SAFE_URL_RE = re.compile(r"^\s*(https?://|mailto:|/|#)", re.IGNORECASE)
+
+
+def _safe_url(raw: str) -> str:
+    """Return an escaped URL if its scheme is safe, else `#`."""
+    if _SAFE_URL_RE.match(raw):
+        return _esc(raw.strip())
+    return "#"
+
 
 def _esc(s: str) -> str:
     return _html.escape(s, quote=True)
@@ -24,14 +38,14 @@ def _render_inline(text: str) -> str:
     # url with explicit target
     text = re.sub(
         r"\[url=([^\]]+)\](.*?)\[/url\]",
-        lambda m: f'<a href="{_esc(m.group(1))}" target="_blank" rel="noopener">{m.group(2)}</a>',
+        lambda m: f'<a href="{_safe_url(m.group(1))}" target="_blank" rel="noopener">{m.group(2)}</a>',
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
     # bare url
     text = re.sub(
         r"\[url\](.*?)\[/url\]",
-        lambda m: f'<a href="{_esc(m.group(1))}" target="_blank" rel="noopener">{_esc(m.group(1))}</a>',
+        lambda m: f'<a href="{_safe_url(m.group(1))}" target="_blank" rel="noopener">{_esc(m.group(1))}</a>',
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
@@ -41,7 +55,7 @@ def _render_inline(text: str) -> str:
     text = re.sub(r"\[strike\](.*?)\[/strike\]", r"<s>\1</s>", text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(
         r"\[img\](.*?)\[/img\]",
-        lambda m: f'<img src="{_esc(m.group(1))}" alt="" loading="lazy">',
+        lambda m: f'<img src="{_safe_url(m.group(1))}" alt="" loading="lazy">',
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
