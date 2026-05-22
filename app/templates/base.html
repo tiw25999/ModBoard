@@ -11,7 +11,7 @@
 <body>
   {% set path = request.url.path %}
   {% set on_admin_page = path.startswith('/admin') %}
-  {% set is_admin = request.cookies.get('mb_admin') == '1' %}
+  {% set is_admin = request.state.is_admin %}
   {% set me = request.state.user %}
   <header>
     <div class="header-left">
@@ -24,7 +24,9 @@
       <a href="/dashboard" class="nav-link {% if path == '/dashboard' %}is-active{% endif %}">Compare</a>
       <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
       <a href="/search" class="nav-link nav-search {% if path == '/search' %}is-active{% endif %}" title="Search" aria-label="Search">⌕</a>
-      <a href="/admin" class="nav-link {% if on_admin_page %}is-active{% endif %}">Admin</a>
+      {% if is_admin %}
+        <a href="/admin" class="nav-link nav-admin {% if on_admin_page %}is-active{% endif %}">⚙ Admin</a>
+      {% endif %}
     </nav>
 
     <div class="header-right">
@@ -37,13 +39,12 @@
           {% endif %}
           <span class="user-chip-name">{{ me.name }}</span>
         </a>
-        <a href="/auth/logout" class="nav-link" title="Sign out">↩</a>
-      {% else %}
-        <a href="/auth/google/login?next={{ path }}" class="nav-link nav-login">Sign in</a>
       {% endif %}
-      {% if is_admin %}
-        <span class="admin-badge" title="Signed in as admin">Admin</span>
-        <a href="/admin/logout" class="nav-link nav-exit" title="Clear admin cookie. Close tab to fully drop browser credentials.">Logout</a>
+
+      {% if me or is_admin %}
+        <a href="/auth/logout" class="nav-link nav-exit" title="Sign out of all sessions">Logout</a>
+      {% else %}
+        <a href="/auth/login?next={{ path }}" class="nav-link nav-login">Sign in</a>
       {% endif %}
     </div>
   </header>
