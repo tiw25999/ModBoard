@@ -26,8 +26,16 @@
   {% block feeds %}{% endblock %}
   {% block extra_head %}{% endblock %}
 
+  {# PWA — installable web app #}
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#ffb547">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ModBoard">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ffb547'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='monospace' font-weight='700' font-size='18' fill='%23000'%3EM%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 </head>
 <body>
   {% set path = request.url.path %}
@@ -99,5 +107,14 @@
 
   <main>{% block body %}{% endblock %}</main>
   {% block scripts %}{% endblock %}
+
+  {# Register service worker — enables Install app prompt + static caching #}
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () =>
+        navigator.serviceWorker.register("/static/sw.js").catch(() => {})
+      );
+    }
+  </script>
 </body>
 </html>

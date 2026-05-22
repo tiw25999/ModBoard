@@ -36,6 +36,22 @@
 
     <div class="forum-body">{{ thread.body_html|safe }}</div>
 
+    {% set tkey = ('thread', thread.id) %}
+    {% set tcounts = reactions_by_target.get(tkey, {}) %}
+    {% set tmine = mine_by_target.get(tkey, []) %}
+    <div class="reaction-bar">
+      {% for e in reaction_emojis %}
+      <form method="post" action="/forum/react" class="reaction-form">
+        <input type="hidden" name="emoji" value="{{ e }}">
+        <input type="hidden" name="thread_id" value="{{ thread.id }}">
+        <button type="submit" class="reaction-btn {% if e in tmine %}is-mine{% endif %} {% if tcounts.get(e) %}has-count{% endif %}">
+          <span class="re-emoji">{{ e }}</span>
+          {% if tcounts.get(e) %}<span class="re-count">{{ tcounts[e] }}</span>{% endif %}
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+
     {% if thread.edited_at %}
     <div class="post-edited">edited {{ thread.edited_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
     {% endif %}
@@ -85,6 +101,22 @@
         {% if can_edit_post %}<a href="/forum/post/{{ p.id }}/edit" class="reply-action">edit</a>{% endif %}
       </div>
       <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
+
+      {% set pkey = ('post', p.id) %}
+      {% set pcounts = reactions_by_target.get(pkey, {}) %}
+        {% set pmine = mine_by_target.get(pkey, []) %}
+      <div class="reaction-bar">
+        {% for e in reaction_emojis %}
+        <form method="post" action="/forum/react" class="reaction-form">
+          <input type="hidden" name="emoji" value="{{ e }}">
+          <input type="hidden" name="post_id" value="{{ p.id }}">
+          <button type="submit" class="reaction-btn {% if e in pmine %}is-mine{% endif %} {% if pcounts.get(e) %}has-count{% endif %}">
+            <span class="re-emoji">{{ e }}</span>
+            {% if pcounts.get(e) %}<span class="re-count">{{ pcounts[e] }}</span>{% endif %}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
     </li>
     {% endfor %}
   </ol>

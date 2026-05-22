@@ -9,6 +9,7 @@ from app.models.forum import (
 from app.models.mod import Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
 from app.models.news import NEWS_KINDS, NewsPost
 from app.models.notification import NOTIFICATION_KINDS, Notification
+from app.models.reaction import REACTION_EMOJIS, ForumReaction
 from app.models.roadmap import ROADMAP_STATUSES, RoadmapItem
 from app.models.subscription import ModSubscription
 from app.models.user import User
@@ -27,6 +28,8 @@ __all__ = [
     "NEWS_KINDS",
     "Notification",
     "NOTIFICATION_KINDS",
+    "ForumReaction",
+    "REACTION_EMOJIS",
     "ROADMAP_STATUSES",
     "RoadmapItem",
     "ModSubscription",

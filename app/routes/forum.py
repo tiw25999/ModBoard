@@ -13,9 +13,11 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.models import (
+    REACTION_EMOJIS,
     THREAD_KINDS,
     THREAD_STATUSES,
     ForumPost,
+    ForumReaction,
     ForumThread,
     ForumUpvote,
     Mod,
@@ -290,6 +292,24 @@ async def forum_view(
     ).scalar_one_or_none() is not None
     user = await current_user(request, session)
     current_uid = user.id if user else None
+
+    # Reactions: build {(post_id|None for thread): {emoji: count}} +
+    # the current token's own reactions so we can highlight them.
+    reaction_rows = (await session.execute(
+        select(ForumReaction).where(
+            (ForumReaction.thread_id == thread_id)
+            | (ForumReaction.post_id.in_([p.id for p in posts] or [-1]))
+        )
+    )).scalars().all()
+    reactions_by_target: dict = {}
+    mine_by_target: dict = {}
+    for r in reaction_rows:
+        key = ("post", r.post_id) if r.post_id else ("thread", r.thread_id)
+        bucket = reactions_by_target.setdefault(key, {})
+        bucket[r.emoji] = bucket.get(r.emoji, 0) + 1
+        if r.voter_token == token:
+            mine_by_target.setdefault(key, set()).add(r.emoji)
+
     return templates.TemplateResponse(
         request, "forum_thread.html",
         {
@@ -304,6 +324,9 @@ async def forum_view(
             "kinds": THREAD_KINDS,
             "statuses": THREAD_STATUSES,
             "edit_window_minutes": int(EDIT_WINDOW.total_seconds() / 60),
+            "reactions_by_target": reactions_by_target,
+            "mine_by_target": mine_by_target,
+            "reaction_emojis": REACTION_EMOJIS,
         },
     )
 
@@ -444,6 +467,54 @@ async def forum_upvote(
     except IntegrityError:
         await session.rollback()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
+
+
+# ---------- reactions (👍 ❤️ 🎉 etc) -------------------------------------
+
+@router.post("/react")
+async def forum_react(
+    request: Request,
+    response: Response,
+    emoji: str = Form(...),
+    thread_id: int = Form(None),
+    post_id: int = Form(None),
+    session: AsyncSession = Depends(get_db),
+):
+    """Toggle a reaction. Same cookie + same emoji on same post = remove."""
+    if emoji not in REACTION_EMOJIS:
+        raise HTTPException(400, detail="bad emoji")
+    if not thread_id and not post_id:
+        raise HTTPException(400, detail="thread_id or post_id required")
+
+    token = get_or_create_token(request, response)
+
+    where = ForumReaction.voter_token == token
+    where &= ForumReaction.emoji == emoji
+    if post_id:
+        where &= ForumReaction.post_id == post_id
+    else:
+        where &= ForumReaction.thread_id == thread_id
+        where &= ForumReaction.post_id.is_(None)
+
+    existing = (await session.execute(select(ForumReaction).where(where))).scalar_one_or_none()
+    if existing is not None:
+        await session.delete(existing)
+    else:
+        session.add(ForumReaction(
+            thread_id=thread_id if not post_id else None,
+            post_id=post_id,
+            voter_token=token,
+            emoji=emoji,
+            created_at=datetime.now(timezone.utc),
+        ))
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+
+    # Return to where they came from
+    referer = request.headers.get("referer", "/forum")
+    return RedirectResponse(referer + (f"#post-{post_id}" if post_id else ""), status_code=303)
 
 
 # ---------- delete own post within window ----------------------------------

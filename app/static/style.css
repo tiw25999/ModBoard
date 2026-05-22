@@ -1022,6 +1022,45 @@ select.input {
 .forum-body p:last-child { margin-bottom: 0; }
 .forum-body a { color: var(--amber); border-bottom: 1px dotted var(--amber-soft); }
 .forum-body strong { color: var(--fg-0); }
+.reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px dashed var(--line);
+}
+.reaction-form { display: inline; margin: 0; }
+.reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 13px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease, transform .08s ease;
+}
+.reaction-btn:hover { border-color: var(--line-2); background: var(--ink-3); transform: translateY(-1px); }
+.reaction-btn:active { transform: translateY(0); }
+.reaction-btn.has-count { background: var(--ink-0); }
+.reaction-btn.is-mine {
+  background: rgba(255,181,71,0.1);
+  border-color: var(--amber);
+  color: var(--fg-0);
+}
+.re-emoji { font-size: 14px; line-height: 1; }
+.re-count {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-1);
+}
+.reaction-btn.is-mine .re-count { color: var(--amber); font-weight: 600; }
+
 .forum-body .mention {
   color: var(--amber);
   font-weight: 500;

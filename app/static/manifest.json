@@ -1,0 +1,26 @@
+{
+  "name": "ModBoard — Workshop Telemetry",
+  "short_name": "ModBoard",
+  "description": "Self-hosted dashboard tracking Steam Workshop mod stats, comments, releases, and a community forum.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08090b",
+  "theme_color": "#ffb547",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Forum",  "url": "/forum",  "description": "Community forum" },
+    { "name": "News",   "url": "/news",   "description": "Latest announcements" },
+    { "name": "Donate", "url": "/donate", "description": "Support the project" }
+  ],
+  "categories": ["productivity", "social", "utilities"]
+}

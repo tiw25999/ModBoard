@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" width="800" height="320">
+  <defs>
+    <!-- background gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0e1014"/>
+      <stop offset="50%"  stop-color="#08090b"/>
+      <stop offset="100%" stop-color="#06070a"/>
+    </linearGradient>
+
+    <!-- amber glow top-right -->
+    <radialGradient id="glow" cx="90%" cy="0%" r="55%">
+      <stop offset="0%"  stop-color="#ffb547" stop-opacity="0.28"/>
+      <stop offset="60%" stop-color="#ffb547" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffb547" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- subtle moss vignette bottom-left -->
+    <radialGradient id="moss" cx="-5%" cy="105%" r="45%">
+      <stop offset="0%"  stop-color="#6f8f4a" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#6f8f4a" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- scanline tile pattern -->
+    <pattern id="scan" width="3" height="3" patternUnits="userSpaceOnUse">
+      <rect width="3" height="1" fill="#ffffff" fill-opacity="0.02"/>
+    </pattern>
+
+    <!-- growth-chart polyline decoration -->
+    <linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#ffb547" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#ffb547" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- canvas -->
+  <rect width="800" height="320" fill="url(#bg)"/>
+  <rect width="800" height="320" fill="url(#glow)"/>
+  <rect width="800" height="320" fill="url(#moss)"/>
+  <rect width="800" height="320" fill="url(#scan)" opacity="0.5"/>
+
+  <!-- hairline framing -->
+  <rect x="0.5" y="0.5" width="799" height="319" fill="none" stroke="#242832" stroke-width="1"/>
+
+  <!-- ===== brand row (top-left) ===== -->
+  <g transform="translate(40, 44)">
+    <circle cx="0" cy="0" r="6" fill="#ffb547">
+      <animate attributeName="opacity" values="1;0.45;1" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <text x="20" y="6" fill="#f1e7d3" font-family="ui-monospace, 'JetBrains Mono', monospace"
+          font-size="14" font-weight="700" letter-spacing="6">MODBOARD</text>
+    <text x="170" y="6" fill="#7e7867" font-family="ui-monospace, monospace"
+          font-size="11" letter-spacing="3">// WORKSHOP TELEMETRY</text>
+  </g>
+
+  <!-- ===== main headline (center-left, big) ===== -->
+  <g transform="translate(40, 130)">
+    <text fill="#f1e7d3" font-family="'Space Grotesk', system-ui, sans-serif"
+          font-size="56" font-weight="600" letter-spacing="-1.5">
+      Indie mods
+    </text>
+    <text y="62" fill="#c9c0ad" font-family="'EB Garamond', Georgia, serif"
+          font-size="44" font-style="italic" font-weight="500">
+      <tspan fill="#c9c0ad">+ </tspan><tspan fill="#ffb547">community telemetry</tspan>
+    </text>
+  </g>
+
+  <!-- ===== right-side chart decoration ===== -->
+  <g transform="translate(540, 88)">
+    <!-- chart frame -->
+    <rect width="220" height="120" rx="6" fill="#0e1014" stroke="#242832" stroke-width="1"/>
+
+    <!-- grid lines -->
+    <line x1="0" y1="40"  x2="220" y2="40"  stroke="#242832" stroke-dasharray="2 4"/>
+    <line x1="0" y1="80"  x2="220" y2="80"  stroke="#242832" stroke-dasharray="2 4"/>
+
+    <!-- growth area fill -->
+    <path d="M 10 100 L 40 90 L 70 80 L 100 65 L 130 55 L 160 35 L 190 28 L 210 18 L 210 110 L 10 110 Z"
+          fill="url(#chartFill)"/>
+    <!-- growth line -->
+    <polyline points="10,100 40,90 70,80 100,65 130,55 160,35 190,28 210,18"
+              fill="none" stroke="#ffb547" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- end dot -->
+    <circle cx="210" cy="18" r="3.5" fill="#ffb547"/>
+    <circle cx="210" cy="18" r="7" fill="#ffb547" fill-opacity="0.25"/>
+
+    <!-- chart label -->
+    <text x="10" y="20" fill="#7e7867" font-family="ui-monospace, monospace"
+          font-size="9" letter-spacing="2">SUBSCRIBERS · 30D</text>
+  </g>
+
+  <!-- ===== mod chips row (bottom) ===== -->
+  <g transform="translate(40, 252)" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="11" letter-spacing="2">
+    <!-- "5 PZ mods" eyebrow -->
+    <text fill="#7e7867" font-weight="500">5 PROJECT ZOMBOID MODS ·</text>
+
+    <g transform="translate(0, 22)">
+      <!-- chip 1 -->
+      <rect x="0"   y="0" width="118" height="22" rx="3" fill="#15181f" stroke="#242832"/>
+      <text x="59"  y="15" fill="#f1e7d3" text-anchor="middle">WeaponEnhancement</text>
+
+      <!-- chip 2 -->
+      <rect x="126" y="0" width="108" height="22" rx="3" fill="#15181f" stroke="#242832"/>
+      <text x="180" y="15" fill="#f1e7d3" text-anchor="middle">LifeMilestones</text>
+
+      <!-- chip 3 -->
+      <rect x="242" y="0" width="78" height="22" rx="3" fill="#15181f" stroke="#242832"/>
+      <text x="281" y="15" fill="#f1e7d3" text-anchor="middle">DayCount</text>
+
+      <!-- chip 4 -->
+      <rect x="328" y="0" width="124" height="22" rx="3" fill="#15181f" stroke="#242832"/>
+      <text x="390" y="15" fill="#f1e7d3" text-anchor="middle">HoldoutSurvivors</text>
+
+      <!-- chip 5 -->
+      <rect x="460" y="0" width="70" height="22" rx="3" fill="#15181f" stroke="#242832"/>
+      <text x="495" y="15" fill="#f1e7d3" text-anchor="middle">EazyLife</text>
+    </g>
+  </g>
+
+  <!-- ===== version stamp (bottom-right) ===== -->
+  <text x="760" y="300" text-anchor="end" fill="#555044"
+        font-family="ui-monospace, monospace" font-size="10" letter-spacing="3">
+    SELF-HOSTED · AD-FREE · OPEN SOURCE
+  </text>
+</svg>

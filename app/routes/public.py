@@ -330,84 +330,120 @@ async def search(
     q: str = Query(default=""),
     session: AsyncSession = Depends(get_db),
 ):
-    """Cross-system search: mods + forum threads + comments + discussions + changelogs.
-    Plain ILIKE for now — switch to Postgres FTS later if traffic grows."""
+    """Cross-system search using Postgres full-text search.
+
+    Strategy:
+      - Build a Postgres `tsquery` from the user's input via `websearch_to_tsquery`
+        (supports natural-language input: bare words, "exact phrase", -exclude).
+      - Each row type has a concatenated text expression we run `to_tsvector`
+        on at query time. With small tables this is fine; once a table grows
+        past ~10k rows, add a STORED generated tsvector column + GIN index
+        per table to keep the planner fast.
+      - Fall back to ILIKE on very short queries (1 char) since FTS requires
+        meaningful tokens.
+    """
+    from sqlalchemy import func as _func, literal, type_coerce
+    from sqlalchemy.dialects.postgresql import TSVECTOR
+
     q = q.strip()
     results = {"mods": [], "threads": [], "comments": [], "discussions": [], "changelogs": []}
-    if q and len(q) >= 2:
-        like = f"%{q}%"
+    if not (q and len(q) >= 2):
+        total = 0
+        return templates.TemplateResponse(
+            request, "search.html",
+            {"q": q, "results": results, "total": total},
+        )
 
-        results["mods"] = (
-            await session.execute(
-                select(Mod)
-                .where(
-                    Mod.public.is_(True),
-                    or_(
-                        Mod.name.ilike(like),
-                        Mod.title.ilike(like),
-                        Mod.description.ilike(like),
-                        Mod.app_name.ilike(like),
-                    ),
-                )
-                .order_by(Mod.name)
-                .limit(30)
-            )
-        ).scalars().all()
+    # websearch_to_tsquery is forgiving — accepts bare user input safely
+    tsq = _func.websearch_to_tsquery("english", q)
 
-        from sqlalchemy.orm import selectinload as _sel
-        results["threads"] = (
-            await session.execute(
-                select(ForumThread)
-                .options(_sel(ForumThread.mod))
-                .where(or_(
-                    ForumThread.title.ilike(like),
-                    ForumThread.body_raw.ilike(like),
-                    ForumThread.author_name.ilike(like),
-                ))
-                .order_by(ForumThread.last_post_at.desc())
-                .limit(30)
-            )
-        ).scalars().all()
+    def _vec(*cols):
+        """Build to_tsvector('english', col1 || ' ' || col2 || ...).
+        coalesce NULLs to '' so a missing field doesn't nuke the row."""
+        expr = cols[0]
+        for c in cols[1:]:
+            expr = expr.op("||")(literal(" ")).op("||")(c)
+        return _func.to_tsvector("english", _func.coalesce(expr, ""))
 
-        results["comments"] = (
-            await session.execute(
-                select(ModComment)
-                .options(_sel(ModComment.mod))
-                .where(or_(
-                    ModComment.body_html.ilike(like),
-                    ModComment.author_name.ilike(like),
-                ))
-                .order_by(ModComment.posted_at.desc().nulls_last())
-                .limit(30)
-            )
-        ).scalars().all()
+    from sqlalchemy.orm import selectinload as _sel
 
-        results["discussions"] = (
-            await session.execute(
-                select(ModDiscussion)
-                .options(_sel(ModDiscussion.mod))
-                .where(or_(
-                    ModDiscussion.title.ilike(like),
-                    ModDiscussion.body_preview.ilike(like),
-                    ModDiscussion.author_name.ilike(like),
-                ))
-                .order_by(ModDiscussion.last_post_at.desc().nulls_last())
-                .limit(30)
-            )
-        ).scalars().all()
+    # --- Mods ---
+    mods_vec = _vec(
+        _func.coalesce(Mod.name, ""),
+        _func.coalesce(Mod.title, ""),
+        _func.coalesce(Mod.description, ""),
+        _func.coalesce(Mod.app_name, ""),
+    )
+    results["mods"] = (
+        await session.execute(
+            select(Mod)
+            .where(Mod.public.is_(True), mods_vec.op("@@")(tsq))
+            .order_by(_func.ts_rank(mods_vec, tsq).desc(), Mod.name)
+            .limit(30)
+        )
+    ).scalars().all()
 
-        results["changelogs"] = (
-            await session.execute(
-                select(ModChangelog)
-                .options(_sel(ModChangelog.mod))
-                .where(or_(
-                    ModChangelog.body_html.ilike(like),
-                    ModChangelog.headline.ilike(like),
-                ))
-                .order_by(ModChangelog.posted_at.desc().nulls_last())
-                .limit(30)
-            )
-        ).scalars().all()
+    # --- Forum threads ---
+    threads_vec = _vec(
+        _func.coalesce(ForumThread.title, ""),
+        _func.coalesce(ForumThread.body_raw, ""),
+        _func.coalesce(ForumThread.author_name, ""),
+    )
+    results["threads"] = (
+        await session.execute(
+            select(ForumThread)
+            .options(_sel(ForumThread.mod))
+            .where(threads_vec.op("@@")(tsq))
+            .order_by(_func.ts_rank(threads_vec, tsq).desc(), ForumThread.last_post_at.desc())
+            .limit(30)
+        )
+    ).scalars().all()
+
+    # --- Workshop comments ---
+    comments_vec = _vec(
+        _func.coalesce(ModComment.body_html, ""),
+        _func.coalesce(ModComment.author_name, ""),
+    )
+    results["comments"] = (
+        await session.execute(
+            select(ModComment)
+            .options(_sel(ModComment.mod))
+            .where(comments_vec.op("@@")(tsq))
+            .order_by(_func.ts_rank(comments_vec, tsq).desc(), ModComment.posted_at.desc().nulls_last())
+            .limit(30)
+        )
+    ).scalars().all()
+
+    # --- Steam discussions ---
+    disc_vec = _vec(
+        _func.coalesce(ModDiscussion.title, ""),
+        _func.coalesce(ModDiscussion.body_preview, ""),
+        _func.coalesce(ModDiscussion.author_name, ""),
+    )
+    results["discussions"] = (
+        await session.execute(
+            select(ModDiscussion)
+            .options(_sel(ModDiscussion.mod))
+            .where(disc_vec.op("@@")(tsq))
+            .order_by(_func.ts_rank(disc_vec, tsq).desc(), ModDiscussion.last_post_at.desc().nulls_last())
+            .limit(30)
+        )
+    ).scalars().all()
+
+    # --- Changelogs ---
+    cl_vec = _vec(
+        _func.coalesce(ModChangelog.headline, ""),
+        _func.coalesce(ModChangelog.body_html, ""),
+    )
+    results["changelogs"] = (
+        await session.execute(
+            select(ModChangelog)
+            .options(_sel(ModChangelog.mod))
+            .where(cl_vec.op("@@")(tsq))
+            .order_by(_func.ts_rank(cl_vec, tsq).desc(), ModChangelog.posted_at.desc().nulls_last())
+            .limit(30)
+        )
+    ).scalars().all()
 
     total = sum(len(v) for v in results.values())
     return templates.TemplateResponse(
