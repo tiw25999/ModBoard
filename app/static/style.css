@@ -1761,6 +1761,13 @@ select.input {
   gap: var(--s-4);
   margin: var(--s-5) 0;
 }
+/* When there are only 2 cards, cap the grid so each card doesn't end up
+   the width of half the viewport (looks awkward on wide monitors). */
+.donate-grid-two {
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 720px;
+}
+@media (max-width: 640px) { .donate-grid-two { grid-template-columns: 1fr; } }
 .donate-card {
   display: flex;
   flex-direction: column;
