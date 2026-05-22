@@ -41,3 +41,24 @@ async def mod_detail(
     return templates.TemplateResponse(
         request, "mod_detail.html", {"mod": mod, "snap": snap}
     )
+
+
+@router.get("/mod/{mod_id}/stats", response_class=HTMLResponse)
+async def mod_stats(
+    request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
+):
+    mod = await session.get(Mod, mod_id)
+    if mod is None or not mod.public:
+        raise HTTPException(404)
+    q = (
+        select(ModSnapshot)
+        .where(ModSnapshot.mod_id == mod_id)
+        .order_by(ModSnapshot.captured_at.asc())
+    )
+    snaps = (await session.execute(q)).scalars().all()
+    labels = [s.captured_at.strftime("%Y-%m-%d %H:%M") for s in snaps]
+    subs   = [s.subscribers_display for s in snaps]
+    return templates.TemplateResponse(
+        request, "mod_stats.html",
+        {"mod": mod, "labels": labels, "subs": subs}
+    )
