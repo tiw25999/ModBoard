@@ -478,12 +478,62 @@ header .brand-sub { color: var(--fg-2); font-weight: 500; }
 }
 @media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
 
-/* compact at narrow widths — drop center nav, reduce padding */
+/* hamburger toggle — visible only at narrow widths */
+.nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  width: 36px; height: 36px;
+}
+.nav-toggle span {
+  display: block;
+  width: 18px; height: 2px;
+  background: var(--fg-0);
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+/* compact at narrow widths — turn nav into a slide-down drawer */
+@media (max-width: 880px) {
+  header {
+    grid-template-columns: 1fr auto auto;
+    gap: var(--s-3);
+  }
+  .header-search { display: none; }   /* search drops out of header at narrow widths */
+  .nav-toggle { display: inline-flex; }
+
+  .topnav {
+    position: fixed;
+    inset: 60px 0 auto 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--s-4);
+    background: var(--ink-0);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    transform: translateY(-110%);
+    transition: transform .25s ease;
+    z-index: 49;
+  }
+  .nav-open .topnav { transform: translateY(0); }
+  .topnav .nav-link { padding: 12px 14px; font-size: 13px; }
+}
+
+/* close the drawer when a nav link is clicked — handled via :target-style trick:
+   actually we just rely on navigation taking the user away, which removes
+   the .nav-open class on the new page load. */
+
 @media (max-width: 640px) {
-  header { grid-template-columns: 1fr auto; gap: var(--s-3); }
-  .topnav { display: none; }
+  header { padding: 10px 16px; }
   header .brand { font-size: 12px; }
-  .version-stamp, .admin-badge { font-size: 10px; }
+  .brand-sub { display: none; }
+  .user-chip-name { display: none; }
 }
 
 /* ---------- per-mod tab bar (Overview / Comments / Discussions / Changelog / Stats) ---------- */
@@ -972,6 +1022,34 @@ select.input {
 .forum-body p:last-child { margin-bottom: 0; }
 .forum-body a { color: var(--amber); border-bottom: 1px dotted var(--amber-soft); }
 .forum-body strong { color: var(--fg-0); }
+.forum-body .mention {
+  color: var(--amber);
+  font-weight: 500;
+  padding: 0 2px;
+  background: rgba(255,181,71,0.08);
+  border-radius: 3px;
+}
+.post-edited {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--fg-3);
+  margin-top: 6px;
+}
+.reply-edited {
+  color: var(--fg-3);
+  font-size: 10px;
+  margin-left: 4px;
+}
+.reply-action {
+  margin-left: 8px;
+  color: var(--fg-3);
+  font-size: 11px;
+  font-family: var(--f-mono);
+  letter-spacing: 0.08em;
+}
+.reply-action:hover { color: var(--amber); }
+
 .forum-body blockquote {
   margin: var(--s-3) 0;
   padding: var(--s-3) var(--s-4);
@@ -1487,6 +1565,20 @@ select.input {
 
 .nav-donate { color: var(--rust) !important; font-size: 14px; }
 .nav-donate:hover { color: #fff !important; background: var(--rust); }
+
+/* "Following" state on the Follow-mod button — keep visually quieter
+   than primary so users notice they're already subscribed but can
+   still spot the action (click to unfollow). */
+.btn-following {
+  background: rgba(143,227,136,0.08);
+  color: var(--signal-green) !important;
+  border-color: var(--signal-green);
+}
+.btn-following:hover {
+  background: rgba(199,91,50,0.1);
+  color: var(--rust) !important;
+  border-color: var(--rust);
+}
 
 /* ---------- news page ---------- */
 .news-list { display: grid; gap: var(--s-4); margin-top: var(--s-5); }

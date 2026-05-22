@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ kind }} — ModBoard{% endblock %}
+{% block body %}
+
+{% set target = thread or post %}
+{% set back_url = "/forum/" ~ (thread.id if thread else post.thread_id) %}
+
+<a href="{{ back_url }}" class="back-link">← back to thread</a>
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Edit {{ kind }}</span>
+    <h1>Update <span class="serif-accent">your post</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      Markdown-light supported: **bold**, *italic*, &gt; quote, auto-link URLs.
+    </div>
+  </div>
+</section>
+
+<form method="post"
+      action="{% if kind == 'thread' %}/forum/{{ thread.id }}/edit{% else %}/forum/post/{{ post.id }}/edit{% endif %}"
+      class="forum-form">
+  {% if kind == 'thread' %}
+  <div class="field">
+    <label for="title">Title</label>
+    <input class="input" id="title" name="title" type="text" maxlength="256"
+           minlength="5" required value="{{ thread.title|e }}">
+  </div>
+  {% endif %}
+  <div class="field">
+    <label for="body">Body</label>
+    <textarea class="input" id="body" name="body" rows="10" minlength="10" required>{{ target.body_raw }}</textarea>
+  </div>
+  <div style="display:flex;gap:var(--s-3);align-items:center">
+    <button type="submit" class="btn primary">Save changes</button>
+    <a href="{{ back_url }}" class="btn">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

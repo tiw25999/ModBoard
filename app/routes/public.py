@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.db import get_db
 from app.models import (
@@ -18,10 +18,12 @@ from app.models import (
     ModComment,
     ModDiscussion,
     ModSnapshot,
+    ModSubscription,
     NewsPost,
     RoadmapItem,
     User,
 )
+from app.services.session import current_user
 from app.services.bbcode import steam_bbcode_to_html
 
 router = APIRouter()
@@ -89,8 +91,6 @@ async def mod_detail(
 ):
     mod = await _require_mod(session, mod_id)
     snap = await _latest_snapshot(session, mod_id)
-    # Detail page only renders a small preview of each list. Full lists live
-    # on their own /comments, /changelog, /discussions pages.
     recent_comments = (
         await session.execute(
             select(ModComment)
@@ -100,6 +100,21 @@ async def mod_detail(
         )
     ).scalars().all()
     counts = await _counts(session, mod_id)
+
+    # Subscription state — only relevant to logged-in users
+    is_subscribed = False
+    user = await current_user(request, session)
+    if user is not None:
+        is_subscribed = (await session.execute(
+            select(ModSubscription).where(
+                ModSubscription.user_id == user.id,
+                ModSubscription.mod_id == mod_id,
+            )
+        )).scalar_one_or_none() is not None
+    sub_count = int((await session.execute(
+        select(func.count()).select_from(ModSubscription).where(ModSubscription.mod_id == mod_id)
+    )).scalar() or 0)
+
     return templates.TemplateResponse(
         request, "mod_detail.html",
         {
@@ -108,6 +123,8 @@ async def mod_detail(
             "recent_comments": recent_comments,
             "counts": counts,
             "description_html": steam_bbcode_to_html(mod.description),
+            "is_subscribed": is_subscribed,
+            "sub_count": sub_count,
         },
     )
 
@@ -214,6 +231,40 @@ async def news_index(request: Request, session: AsyncSession = Depends(get_db)):
 @router.get("/donate", response_class=HTMLResponse)
 async def donate(request: Request):
     return templates.TemplateResponse(request, "donate.html", {})
+
+
+@router.post("/mod/{mod_id}/subscribe")
+async def toggle_mod_subscription(
+    request: Request,
+    mod_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    """Toggle a user's follow on a mod. Anon users get bounced to login.
+    Acts as the same endpoint for subscribe + unsubscribe (idempotent)."""
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse(f"/auth/login?next=/mod/{mod_id}", status_code=303)
+    mod = await session.get(Mod, mod_id)
+    if mod is None:
+        raise HTTPException(404)
+    existing = (
+        await session.execute(
+            select(ModSubscription).where(
+                ModSubscription.user_id == user.id,
+                ModSubscription.mod_id == mod_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        await session.delete(existing)
+    else:
+        session.add(ModSubscription(
+            user_id=user.id, mod_id=mod_id,
+            created_at=datetime.now(timezone.utc),
+        ))
+    await session.commit()
+    referer = request.headers.get("referer", f"/mod/{mod_id}")
+    return RedirectResponse(referer, status_code=303)
 
 
 @router.get("/u/{user_id:int}", response_class=HTMLResponse)

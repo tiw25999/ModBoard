@@ -20,11 +20,40 @@ from app.models import (
     ForumUpvote,
     Mod,
     Notification,
+    User,
 )
 from app.services.anon import get_or_create_token, get_token
 from app.services.auth import admin_marker_present, is_admin as _check_admin
 from app.services.session import current_user
-from app.services.textfmt import is_likely_spam, render, slugify
+from app.services.textfmt import extract_mentions, is_likely_spam, render, slugify
+
+
+async def _notify_mentions(session, raw_body: str, thread_id: int, post_id: int | None,
+                            actor_name: str, exclude_user_id: int | None) -> None:
+    """Create notifications for any @mentioned users (case-insensitive match
+    on user.name). Doesn't notify the actor themselves."""
+    names = extract_mentions(raw_body)
+    if not names:
+        return
+    from sqlalchemy import func as _func
+    targets = (await session.execute(
+        select(User).where(_func.lower(User.name).in_([n.lower() for n in names]))
+    )).scalars().all()
+    if not targets:
+        return
+    now = datetime.now(timezone.utc)
+    for u in targets:
+        if exclude_user_id and u.id == exclude_user_id:
+            continue
+        session.add(Notification(
+            user_id=u.id,
+            kind="mention",
+            thread_id=thread_id,
+            post_id=post_id,
+            actor_name=actor_name,
+            payload=raw_body[:200],
+            created_at=now,
+        ))
 
 DEVELOPER_LABEL = "Developer"
 
@@ -215,6 +244,11 @@ async def forum_new_submit(
         last_post_at=now,
     )
     session.add(thread)
+    await session.flush()
+    await _notify_mentions(
+        session, body, thread.id, None, author_name,
+        exclude_user_id=user.id if user else None,
+    )
     await session.commit()
     await session.refresh(thread)
     return RedirectResponse(f"/forum/{thread.id}/{thread.slug}", status_code=303)
@@ -254,16 +288,22 @@ async def forum_view(
             )
         )
     ).scalar_one_or_none() is not None
+    user = await current_user(request, session)
+    current_uid = user.id if user else None
     return templates.TemplateResponse(
         request, "forum_thread.html",
         {
             "thread": thread,
             "posts": posts,
             "has_voted": has_voted,
-            "is_owner": thread.author_token == token,
+            "is_owner": thread.author_token == token
+                        or (current_uid and thread.author_user_id == current_uid),
             "is_admin": _is_admin(request),
+            "current_user_id": current_uid,
+            "current_token": token,
             "kinds": THREAD_KINDS,
             "statuses": THREAD_STATUSES,
+            "edit_window_minutes": int(EDIT_WINDOW.total_seconds() / 60),
         },
     )
 
@@ -357,6 +397,11 @@ async def forum_reply(
         ))
         already_notified.add(replier_id)
 
+    await _notify_mentions(
+        session, body, thread.id, post.id, author_name,
+        exclude_user_id=user.id if user else None,
+    )
+
     await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}#post-{post.id}", status_code=303)
 
@@ -402,6 +447,115 @@ async def forum_upvote(
 
 
 # ---------- delete own post within window ----------------------------------
+
+EDIT_WINDOW = timedelta(minutes=30)
+
+
+def _can_edit(request: Request, author_token: str, author_user_id: int | None,
+              current_user_id: int | None, created_at: datetime) -> bool:
+    """Edit allowed if (a) you're admin, or (b) you're the author (cookie
+    or account match) AND within EDIT_WINDOW of creation."""
+    if _check_admin(request):
+        return True
+    if (datetime.now(timezone.utc) - created_at) > EDIT_WINDOW:
+        return False
+    if current_user_id is not None and author_user_id == current_user_id:
+        return True
+    cookie_token = get_token(request)
+    return cookie_token is not None and cookie_token == author_token
+
+
+@router.get("/post/{post_id}/edit", response_class=HTMLResponse)
+async def forum_post_edit_form(
+    request: Request,
+    post_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    post = await session.get(ForumPost, post_id)
+    if post is None:
+        raise HTTPException(404)
+    user = await current_user(request, session)
+    if not _can_edit(request, post.author_token, post.author_user_id,
+                     user.id if user else None, post.created_at):
+        raise HTTPException(403, detail="Can't edit this post")
+    return templates.TemplateResponse(
+        request, "forum_edit_post.html",
+        {"post": post, "kind": "reply"},
+    )
+
+
+@router.post("/post/{post_id}/edit")
+async def forum_post_edit_submit(
+    request: Request,
+    post_id: int,
+    body: str = Form(...),
+    session: AsyncSession = Depends(get_db),
+):
+    post = await session.get(ForumPost, post_id)
+    if post is None:
+        raise HTTPException(404)
+    user = await current_user(request, session)
+    if not _can_edit(request, post.author_token, post.author_user_id,
+                     user.id if user else None, post.created_at):
+        raise HTTPException(403)
+    body = body.strip()
+    if len(body) < 10:
+        raise HTTPException(400, detail="body too short")
+    post.body_raw = body
+    post.body_html = render(body)
+    post.edited_at = datetime.now(timezone.utc)
+    await session.commit()
+    thread = await session.get(ForumThread, post.thread_id)
+    slug = thread.slug if thread else ""
+    return RedirectResponse(f"/forum/{post.thread_id}/{slug}#post-{post.id}", status_code=303)
+
+
+@router.get("/{thread_id}/edit", response_class=HTMLResponse)
+async def forum_thread_edit_form(
+    request: Request,
+    thread_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    thread = await session.get(ForumThread, thread_id)
+    if thread is None:
+        raise HTTPException(404)
+    user = await current_user(request, session)
+    if not _can_edit(request, thread.author_token, thread.author_user_id,
+                     user.id if user else None, thread.created_at):
+        raise HTTPException(403, detail="Can't edit this thread")
+    return templates.TemplateResponse(
+        request, "forum_edit_post.html",
+        {"thread": thread, "kind": "thread"},
+    )
+
+
+@router.post("/{thread_id}/edit")
+async def forum_thread_edit_submit(
+    request: Request,
+    thread_id: int,
+    title: str = Form(...),
+    body: str = Form(...),
+    session: AsyncSession = Depends(get_db),
+):
+    thread = await session.get(ForumThread, thread_id)
+    if thread is None:
+        raise HTTPException(404)
+    user = await current_user(request, session)
+    if not _can_edit(request, thread.author_token, thread.author_user_id,
+                     user.id if user else None, thread.created_at):
+        raise HTTPException(403)
+    title = title.strip()[:256]
+    body = body.strip()
+    if len(title) < 5 or len(body) < 10:
+        raise HTTPException(400, detail="title/body too short")
+    thread.title = title
+    thread.body_raw = body
+    thread.body_html = render(body)
+    thread.edited_at = datetime.now(timezone.utc)
+    thread.updated_at = thread.edited_at
+    await session.commit()
+    return RedirectResponse(f"/forum/{thread.id}/{thread.slug}", status_code=303)
+
 
 @router.post("/post/{post_id}/delete")
 async def forum_post_delete(

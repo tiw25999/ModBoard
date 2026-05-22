@@ -36,8 +36,13 @@
 
     <div class="forum-body">{{ thread.body_html|safe }}</div>
 
+    {% if thread.edited_at %}
+    <div class="post-edited">edited {{ thread.edited_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+    {% endif %}
+
     <div class="thread-actions-row">
       {% if is_owner or is_admin %}
+        <a href="/forum/{{ thread.id }}/edit" class="btn-admin-link">Edit thread</a>
         <form method="post" action="/forum/{{ thread.id }}/delete" onsubmit="return confirm('Delete this thread and all replies?');" style="display:inline">
           <button type="submit" class="btn-danger-link">Delete thread</button>
         </form>
@@ -69,12 +74,15 @@
   {% if posts %}
   <ol class="reply-list">
     {% for p in posts %}
+    {% set can_edit_post = is_admin or (current_user_id and p.author_user_id == current_user_id) or (current_token and current_token == p.author_token) %}
     <li class="reply" id="post-{{ p.id }}">
       <div class="reply-meta">
         <span class="reply-author">
           {% if p.author_user_id %}<a href="/u/{{ p.author_user_id }}">{% endif %}<b {% if p.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ p.author_name }}</b>{% if p.author_user_id %}</a>{% endif %}
         </span>
         <span class="reply-when">{{ p.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+        {% if p.edited_at %}<span class="reply-edited">· edited</span>{% endif %}
+        {% if can_edit_post %}<a href="/forum/post/{{ p.id }}/edit" class="reply-action">edit</a>{% endif %}
       </div>
       <div class="reply-body forum-body">{{ p.body_html|safe }}</div>
     </li>

@@ -23,6 +23,7 @@
   <meta name="twitter:description" content="{{ self.description() }}">
   <meta name="twitter:image" content="{{ self.og_image() }}">
 
+  {% block feeds %}{% endblock %}
   {% block extra_head %}{% endblock %}
 
   <link rel="stylesheet" href="/static/style.css">
@@ -56,6 +57,11 @@
         <a href="/admin" class="nav-link nav-admin {% if on_admin_page %}is-active{% endif %}">⚙ Admin</a>
       {% endif %}
     </nav>
+
+    <button class="nav-toggle" type="button" aria-label="Open menu"
+            onclick="document.body.classList.toggle('nav-open')">
+      <span></span><span></span><span></span>
+    </button>
 
     <div class="header-right">
       {% if me %}

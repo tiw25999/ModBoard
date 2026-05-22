@@ -49,6 +49,7 @@ class ForumThread(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_post_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     mod: Mapped["Mod | None"] = relationship()
     posts: Mapped[list["ForumPost"]] = relationship(
@@ -76,6 +77,7 @@ class ForumPost(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     thread: Mapped[ForumThread] = relationship(back_populates="posts")
 

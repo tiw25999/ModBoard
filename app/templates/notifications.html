@@ -25,11 +25,16 @@
   {% for n in notes %}
   {% set t = threads.get(n.thread_id) %}
   <li class="notif-row notif-{{ n.kind }}">
+    {% set m = mods_lookup.get(n.mod_id) if n.mod_id else None %}
     <div class="notif-icon">
       {% if n.kind == 'thread_reply' %}💬
       {% elif n.kind == 'reply_to_reply' %}↩
       {% elif n.kind == 'thread_status' %}🏷
       {% elif n.kind == 'thread_locked' %}🔒
+      {% elif n.kind == 'mention' %}@
+      {% elif n.kind == 'mod_new_comment' %}💬
+      {% elif n.kind == 'mod_new_changelog' %}📝
+      {% elif n.kind == 'mod_new_discussion' %}🗣
       {% else %}🔔{% endif %}
     </div>
     <div class="notif-body">
@@ -46,6 +51,21 @@
           changed to <span class="status status-{{ n.payload }}">{{ n.payload }}</span>
         {% elif n.kind == 'thread_locked' %}
           Your thread {% if t %}<a href="/forum/{{ t.id }}/{{ t.slug }}">{{ t.title }}</a>{% endif %} was locked
+        {% elif n.kind == 'mention' %}
+          <b>{{ n.actor_name or 'someone' }}</b> mentioned you
+          {% if t %}in <a href="/forum/{{ t.id }}/{{ t.slug }}{% if n.post_id %}#post-{{ n.post_id }}{% endif %}">{{ t.title }}</a>{% endif %}
+        {% elif n.kind == 'mod_new_comment' %}
+          {% set parts = (n.payload or '0|').split('|', 1) %}
+          <b>{{ parts[0]|int if parts[0].isdigit() else 1 }} new comment{{ "" if parts[0] == '1' else "s" }}</b> on
+          {% if m %}<a href="/mod/{{ m.id }}/comments">{{ m.title or m.name }}</a>{% else %}a mod you follow{% endif %}
+        {% elif n.kind == 'mod_new_changelog' %}
+          {% set parts = (n.payload or '0|').split('|', 1) %}
+          <b>{{ parts[0]|int if parts[0].isdigit() else 1 }} new release note{{ "" if parts[0] == '1' else "s" }}</b> for
+          {% if m %}<a href="/mod/{{ m.id }}/changelog">{{ m.title or m.name }}</a>{% else %}a mod you follow{% endif %}
+        {% elif n.kind == 'mod_new_discussion' %}
+          {% set parts = (n.payload or '0|').split('|', 1) %}
+          <b>{{ parts[0]|int if parts[0].isdigit() else 1 }} new discussion thread{{ "" if parts[0] == '1' else "s" }}</b> on
+          {% if m %}<a href="/mod/{{ m.id }}/discussions">{{ m.title or m.name }}</a>{% else %}a mod you follow{% endif %}
         {% else %}
           {{ n.payload }}
         {% endif %}

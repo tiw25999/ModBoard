@@ -248,7 +248,7 @@ async def my_notifications(
         )
     ).scalars().all()
 
-    # Eager-fetch related threads for display
+    # Eager-fetch related threads + mods for display
     thread_ids = {n.thread_id for n in notes if n.thread_id}
     threads = {}
     if thread_ids:
@@ -256,6 +256,12 @@ async def my_notifications(
             select(ForumThread).where(ForumThread.id.in_(thread_ids))
         )).scalars().all()
         threads = {t.id: t for t in rows}
+    from app.models import Mod
+    mod_ids = {n.mod_id for n in notes if n.mod_id}
+    mods_lookup = {}
+    if mod_ids:
+        rows = (await session.execute(select(Mod).where(Mod.id.in_(mod_ids)))).scalars().all()
+        mods_lookup = {m.id: m for m in rows}
 
     # Mark unread as read on view
     now = datetime.now(timezone.utc)
@@ -267,7 +273,7 @@ async def my_notifications(
 
     return templates.TemplateResponse(
         request, "notifications.html",
-        {"user": user, "notes": notes, "threads": threads},
+        {"user": user, "notes": notes, "threads": threads, "mods_lookup": mods_lookup},
     )
 
 

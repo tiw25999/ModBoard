@@ -31,7 +31,7 @@ def set_session(response: Response, user_id: int) -> None:
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=settings.secure_cookies,
     )
 
 

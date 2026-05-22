@@ -31,7 +31,16 @@
       <div class="thumb" style="display:grid;place-items:center;font-family:var(--f-mono);color:var(--fg-3);font-size:11px;letter-spacing:.2em">NO IMAGE</div>
     {% endif %}
     <div class="actions">
-      <a class="btn primary" href="{{ mod.workshop_url }}" target="_blank" rel="noopener">
+      <form method="post" action="/mod/{{ mod.id }}/subscribe" style="margin:0">
+        <button type="submit" class="btn {% if is_subscribed %}btn-following{% else %}primary{% endif %}">
+          {% if is_subscribed %}
+            <span>✓ Following</span><span class="arrow">{{ sub_count }}</span>
+          {% else %}
+            <span>+ Follow mod</span><span class="arrow">{{ sub_count }}</span>
+          {% endif %}
+        </button>
+      </form>
+      <a class="btn" href="{{ mod.workshop_url }}" target="_blank" rel="noopener">
         <span>Open on Steam</span><span class="arrow">↗</span>
       </a>
       {% if mod.github_url %}

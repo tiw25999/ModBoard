@@ -37,7 +37,7 @@ def set_admin_session(response: Response) -> None:
         max_age=ADMIN_COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=settings.secure_cookies,
     )
 
 

@@ -15,6 +15,25 @@ import html as _html
 import re
 
 _URL_RE = re.compile(r"(https?://[^\s<>\"']+)")
+_MENTION_RE = re.compile(r"(?<![A-Za-z0-9_])@([A-Za-z0-9_.-]{2,32})")
+
+
+def extract_mentions(raw: str) -> list[str]:
+    """Pull `@name` tokens out of raw text before rendering. Returns
+    the unique lower-cased name strings (matched case-insensitively by
+    caller against user.name)."""
+    if not raw:
+        return []
+    seen: list[str] = []
+    lower_seen: set[str] = set()
+    for m in _MENTION_RE.finditer(raw):
+        name = m.group(1)
+        key = name.lower()
+        if key in lower_seen:
+            continue
+        lower_seen.add(key)
+        seen.append(name)
+    return seen
 
 
 def slugify(text: str, max_len: int = 60) -> str:
@@ -37,6 +56,11 @@ def render(text: str) -> str:
         url = m.group(1)
         return f'<a href="{url}" target="_blank" rel="noopener nofollow">{url}</a>'
     escaped = _URL_RE.sub(_link, escaped)
+
+    # Highlight @mentions — the route code may upgrade these to <a> tags
+    # afterwards if the name resolves to a real user. Without resolution,
+    # we still visually mark them.
+    escaped = _MENTION_RE.sub(r'<span class="mention">@\1</span>', escaped)
 
     # Split into paragraphs at blank lines
     paragraphs = re.split(r"\n\s*\n", escaped)

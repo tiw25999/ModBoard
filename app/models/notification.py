@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -9,10 +9,14 @@ from app.db import Base
 # Notification kinds — keep narrow so the UI can render each type with a
 # specific verb + icon.
 NOTIFICATION_KINDS = (
-    "thread_reply",      # someone replied to your thread
-    "thread_status",     # an admin changed your thread's status
-    "thread_locked",     # an admin locked your thread
-    "reply_to_reply",    # someone replied after you replied in a thread
+    "thread_reply",       # someone replied to your thread
+    "thread_status",      # an admin changed your thread's status
+    "thread_locked",      # an admin locked your thread
+    "reply_to_reply",     # someone replied after you replied in a thread
+    "mention",            # @-mentioned in a forum post
+    "mod_new_comment",    # a mod you follow got a new Steam comment
+    "mod_new_changelog",  # a mod you follow shipped a release note
+    "mod_new_discussion", # a mod you follow has a new Steam discussion thread
 )
 
 
@@ -33,6 +37,9 @@ class Notification(Base):
     )
     post_id: Mapped[int | None] = mapped_column(
         ForeignKey("forum_posts.id", ondelete="CASCADE")
+    )
+    mod_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("mods.id", ondelete="CASCADE"), index=True
     )
     actor_name: Mapped[str | None] = mapped_column(String(64))
     payload: Mapped[str | None] = mapped_column(Text)

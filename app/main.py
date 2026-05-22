@@ -14,6 +14,7 @@ from app.routes import admin as admin_routes
 from app.routes import auth as auth_routes
 from app.routes import forum as forum_routes
 from app.routes import public as public_routes
+from app.routes import feeds as feeds_routes
 from app.routes import seo as seo_routes
 from app.services.auth import is_admin as _is_admin_cookie
 from app.services.poller import poller_task
@@ -35,6 +36,7 @@ app = FastAPI(title="ModBoard", lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(seo_routes.router)   # robots.txt + sitemap.xml at root
+app.include_router(feeds_routes.router) # /forum.rss, /news.rss, /mod/{id}/comments.rss, etc.
 app.include_router(public_routes.router)
 app.include_router(forum_routes.router)
 app.include_router(auth_routes.router)

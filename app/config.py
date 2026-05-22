@@ -16,9 +16,18 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
 
+    # When true, all cookies get Secure flag (HTTPS only). Cloudflare
+    # Tunnel always terminates TLS, so any tunnel-backed deploy should
+    # set PRODUCTION=true in its .env.
+    production: bool = False
+
     @property
     def google_oauth_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.production
 
 
 settings = Settings()

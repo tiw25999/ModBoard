@@ -15,6 +15,8 @@ import secrets
 
 from fastapi import Request, Response
 
+from app.config import settings
+
 COOKIE_NAME = "mb_token"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
 
@@ -30,7 +32,7 @@ def get_or_create_token(request: Request, response: Response) -> str:
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,  # set True behind HTTPS (production via Cloudflare Tunnel)
+        secure=settings.secure_cookies,
     )
     return token
 
