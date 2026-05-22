@@ -1,10 +1,54 @@
+# 0-downtime topology:
+#   cloudflared → caddy → [app1 round-robin app2]
+# Both app replicas share image `modboard-app:latest`. Only one
+# (app1) runs the Steam poller; the other (app2) is HTTP-only.
+# deploy.sh rebuilds the image then rolls them one at a time —
+# Caddy's active health checks route around whichever is down.
+#
+# IMPORTANT: After first switch to this compose, update the
+# Cloudflare Tunnel public hostname target in the Zero Trust
+# dashboard from  http://app:8000  →  http://caddy:8000
+
+x-app: &app
+  image: modboard-app:latest
+  build: .
+  env_file: .env
+  depends_on:
+    db:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+    interval: 5s
+    timeout: 3s
+    retries: 3
+    start_period: 20s
+  restart: unless-stopped
+
 services:
-  app:
-    build: .
-    env_file: .env
+  app1:
+    <<: *app
+    environment:
+      RUN_POLLER: "true"
+
+  app2:
+    <<: *app
+    environment:
+      RUN_POLLER: "false"
+
+  caddy:
+    image: caddy:2-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      # Bind to loopback only — Cloudflare Tunnel reaches us via the
+      # docker network (service name `caddy`), not via the host port.
+      # The host port is just so deploy.sh can run smoke checks.
+      - "127.0.0.1:8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
+      - app1
+      - app2
     restart: unless-stopped
 
   db:
@@ -23,7 +67,7 @@ services:
     command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
     env_file: .env
     depends_on:
-      - app
+      - caddy
     restart: unless-stopped
 
   db-backup:
@@ -49,3 +93,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

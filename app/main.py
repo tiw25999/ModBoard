@@ -1,6 +1,7 @@
 """ModBoard FastAPI app."""
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -27,9 +28,15 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(poller_task())
+    # With multiple app replicas behind the load balancer, only one should
+    # run the Steam poller (otherwise we double the API rate + risk duplicate
+    # notifications). Set RUN_POLLER=false on the standby replica.
+    task = None
+    if os.getenv("RUN_POLLER", "true").lower() == "true":
+        task = asyncio.create_task(poller_task())
     yield
-    task.cancel()
+    if task is not None:
+        task.cancel()
 
 
 app = FastAPI(title="ModBoard", lifespan=lifespan)
