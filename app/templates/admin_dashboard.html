@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Admin · Dashboard — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Control Room</span>
+    <h1>Admin <span class="serif-accent">dashboard</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Live counters · poll cadence every 30 min · {% if last_poll %}last snapshot {{ last_poll.strftime("%Y-%m-%d %H:%M UTC") }}{% else %}never polled{% endif %}</span>
+    </div>
+  </div>
+  <div class="meta" style="display:flex;gap:var(--s-3);align-items:center;flex-wrap:wrap">
+    <form method="post" action="/admin/poll-now" style="display:inline">
+      <button type="submit" class="btn primary"><span>↻ Poll now</span></button>
+    </form>
+    <a href="/admin/mods" class="btn"><span>Manage mods</span><span class="arrow">→</span></a>
+  </div>
+</section>
+
+{% if request.query_params.get('polled') %}
+<div class="form-error" style="background:rgba(143,227,136,0.07);border-color:var(--signal-green);color:var(--signal-green)">
+  Poll dispatched in background — refresh in a few seconds to see new snapshots.
+</div>
+{% endif %}
+
+<div class="kpi-grid kpi-grid-7">
+  <div class="kpi">
+    <span class="k">Mods</span>
+    <span class="v">{{ totals.mods }}</span>
+    <span class="sub">tracked · {{ games|length }} game{{ "" if games|length == 1 else "s" }}</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Subscribers</span>
+    <span class="v">{{ total_subs }}</span>
+    <span class="sub">summed across mods</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Visitors</span>
+    <span class="v">{{ total_visitors }}</span>
+    <span class="sub">lifetime unique</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Comments</span>
+    <span class="v">{{ totals.comments }}</span>
+    <span class="sub">scraped</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Discussions</span>
+    <span class="v">{{ totals.discussions }}</span>
+    <span class="sub">threads on Steam</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Changelogs</span>
+    <span class="v">{{ totals.changelogs }}</span>
+    <span class="sub">release notes</span>
+  </div>
+  <div class="kpi">
+    <span class="k">Forum</span>
+    <span class="v">{{ totals.threads }}</span>
+    <span class="sub">{{ totals.replies }} repl{{ "y" if totals.replies == 1 else "ies" }}</span>
+  </div>
+</div>
+
+<section class="dash-section">
+  <div class="section-head">
+    <span class="eyebrow">Per-mod status</span>
+    <a class="section-link section-meta" href="/admin/mods">manage →</a>
+  </div>
+
+  <div class="dash-table-wrap">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th style="width:220px">Mod</th>
+          <th>Game</th>
+          <th class="num">Subs</th>
+          <th class="num">Visitors</th>
+          <th class="num">Favs</th>
+          <th class="num">Comments</th>
+          <th class="num">Discussions</th>
+          <th class="num">Changelog</th>
+          <th class="num">Snapshots</th>
+          <th>Last poll</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in per_mod %}
+        <tr>
+          <td>
+            <a href="/mod/{{ row.mod.id }}" class="dash-mod-link">
+              <strong>{{ row.mod.title or row.mod.name }}</strong>
+              <span class="slug">{{ row.mod.name }}</span>
+            </a>
+          </td>
+          <td><span class="dash-game-pill">{{ row.mod.app_name or "—" }}</span></td>
+          <td class="num">{{ row.snap.subscribers_display if row.snap and row.snap.subscribers_display is not none else "—" }}</td>
+          <td class="num">{{ row.snap.visitors_display if row.snap and row.snap.visitors_display is not none else "—" }}</td>
+          <td class="num">{{ row.snap.favorites_display if row.snap and row.snap.favorites_display is not none else "—" }}</td>
+          <td class="num">{{ row.comments }}</td>
+          <td class="num">{{ row.discussions }}</td>
+          <td class="num">{{ row.changelogs }}</td>
+          <td class="num dim">{{ row.snap_count }}</td>
+          <td class="dim">
+            {% if row.snap %}{{ row.snap.captured_at.strftime("%m-%d %H:%M") }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not per_mod %}
+        <tr><td colspan="10" class="dash-empty">No mods yet — <a href="/admin/mods">add the first one</a></td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="dash-feeds">
+  <section class="dash-feed">
+    <div class="section-head">
+      <span class="eyebrow">Recent comments</span>
+      <span class="section-meta">{{ recent_comments|length }} shown</span>
+    </div>
+    {% if recent_comments %}
+    <ul class="feed-list">
+      {% for c in recent_comments %}
+      <li class="feed-item">
+        <div class="feed-when">{{ c.posted_at.strftime("%m-%d %H:%M") if c.posted_at else "—" }}</div>
+        <div class="feed-body">
+          <a href="/mod/{{ c.mod_id }}/comments"><b>{{ c.mod.title or c.mod.name if c.mod else c.mod_id }}</b></a>
+          <span class="feed-author">— {{ c.author_name or "anon" }}</span>
+          <div class="feed-snippet">{{ c.body_html|striptags|truncate(120) }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="thread-empty">No comments yet</div>{% endif %}
+  </section>
+
+  <section class="dash-feed">
+    <div class="section-head">
+      <span class="eyebrow">Recent changelogs</span>
+      <span class="section-meta">{{ recent_changelogs|length }} shown</span>
+    </div>
+    {% if recent_changelogs %}
+    <ul class="feed-list">
+      {% for ch in recent_changelogs %}
+      <li class="feed-item">
+        <div class="feed-when">{{ ch.posted_at.strftime("%m-%d %H:%M") if ch.posted_at else "—" }}</div>
+        <div class="feed-body">
+          <a href="/mod/{{ ch.mod_id }}/changelog"><b>{{ ch.mod.title or ch.mod.name if ch.mod else ch.mod_id }}</b></a>
+          <span class="feed-author">— {{ ch.headline or "Update" }}</span>
+          <div class="feed-snippet">{{ ch.body_html|striptags|truncate(120) }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="thread-empty">No changelog entries yet</div>{% endif %}
+  </section>
+
+  <section class="dash-feed">
+    <div class="section-head">
+      <span class="eyebrow">Recent forum activity</span>
+      <a class="section-link section-meta" href="/forum">view all →</a>
+    </div>
+    {% if recent_threads %}
+    <ul class="feed-list">
+      {% for t in recent_threads %}
+      <li class="feed-item">
+        <div class="feed-when">{{ t.created_at.strftime("%m-%d %H:%M") }}</div>
+        <div class="feed-body">
+          <span class="kind kind-{{ t.kind }}" style="margin-right:6px">{{ t.kind }}</span>
+          <a href="/forum/{{ t.id }}/{{ t.slug }}"><b>{{ t.title }}</b></a>
+          <span class="feed-author">— {{ t.author_name }}</span>
+          {% if t.mod %}<div class="feed-snippet">about <a href="/mod/{{ t.mod.id }}">{{ t.mod.title or t.mod.name }}</a> · {{ t.reply_count }} replies · {{ t.upvotes }} ▲</div>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="thread-empty">No forum threads yet</div>{% endif %}
+  </section>
+</div>
+
+{% endblock %}

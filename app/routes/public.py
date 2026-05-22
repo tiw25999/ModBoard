@@ -1,13 +1,16 @@
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import or_
+
 from app.db import get_db
-from app.models import Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
+from app.models import ForumThread, Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
 from app.services.bbcode import steam_bbcode_to_html
 
 router = APIRouter()
@@ -154,6 +157,161 @@ async def mod_discussions(
     return templates.TemplateResponse(
         request, "mod_discussions.html",
         {"mod": mod, "discussions": discussions, "counts": counts, "active_tab": "discussions"},
+    )
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search(
+    request: Request,
+    q: str = Query(default=""),
+    session: AsyncSession = Depends(get_db),
+):
+    """Cross-system search: mods + forum threads + comments + discussions + changelogs.
+    Plain ILIKE for now — switch to Postgres FTS later if traffic grows."""
+    q = q.strip()
+    results = {"mods": [], "threads": [], "comments": [], "discussions": [], "changelogs": []}
+    if q and len(q) >= 2:
+        like = f"%{q}%"
+
+        results["mods"] = (
+            await session.execute(
+                select(Mod)
+                .where(
+                    Mod.public.is_(True),
+                    or_(
+                        Mod.name.ilike(like),
+                        Mod.title.ilike(like),
+                        Mod.description.ilike(like),
+                        Mod.app_name.ilike(like),
+                    ),
+                )
+                .order_by(Mod.name)
+                .limit(30)
+            )
+        ).scalars().all()
+
+        from sqlalchemy.orm import selectinload as _sel
+        results["threads"] = (
+            await session.execute(
+                select(ForumThread)
+                .options(_sel(ForumThread.mod))
+                .where(or_(
+                    ForumThread.title.ilike(like),
+                    ForumThread.body_raw.ilike(like),
+                    ForumThread.author_name.ilike(like),
+                ))
+                .order_by(ForumThread.last_post_at.desc())
+                .limit(30)
+            )
+        ).scalars().all()
+
+        results["comments"] = (
+            await session.execute(
+                select(ModComment)
+                .options(_sel(ModComment.mod))
+                .where(or_(
+                    ModComment.body_html.ilike(like),
+                    ModComment.author_name.ilike(like),
+                ))
+                .order_by(ModComment.posted_at.desc().nulls_last())
+                .limit(30)
+            )
+        ).scalars().all()
+
+        results["discussions"] = (
+            await session.execute(
+                select(ModDiscussion)
+                .options(_sel(ModDiscussion.mod))
+                .where(or_(
+                    ModDiscussion.title.ilike(like),
+                    ModDiscussion.body_preview.ilike(like),
+                    ModDiscussion.author_name.ilike(like),
+                ))
+                .order_by(ModDiscussion.last_post_at.desc().nulls_last())
+                .limit(30)
+            )
+        ).scalars().all()
+
+        results["changelogs"] = (
+            await session.execute(
+                select(ModChangelog)
+                .options(_sel(ModChangelog.mod))
+                .where(or_(
+                    ModChangelog.body_html.ilike(like),
+                    ModChangelog.headline.ilike(like),
+                ))
+                .order_by(ModChangelog.posted_at.desc().nulls_last())
+                .limit(30)
+            )
+        ).scalars().all()
+
+    total = sum(len(v) for v in results.values())
+    return templates.TemplateResponse(
+        request, "search.html",
+        {"q": q, "results": results, "total": total},
+    )
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+async def overview_dashboard(
+    request: Request,
+    game: str | None = Query(default=None),
+    metric: str = Query(default="subscribers"),
+    days: int = Query(default=14, ge=1, le=180),
+    session: AsyncSession = Depends(get_db),
+):
+    """Overlay each tracked mod's subscriber/comment/visitor curve on a single chart."""
+    metric = metric if metric in ("subscribers", "visitors", "favorites", "comments") else "subscribers"
+
+    mods_q = select(Mod).where(Mod.public.is_(True)).order_by(Mod.app_name.nulls_last(), Mod.name)
+    if game:
+        mods_q = mods_q.where(Mod.app_name == game)
+    mods = (await session.execute(mods_q)).scalars().all()
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    field_map = {
+        "subscribers": ModSnapshot.subscribers_display,
+        "visitors":    ModSnapshot.visitors_display,
+        "favorites":   ModSnapshot.favorites_display,
+        "comments":    ModSnapshot.comments_count,
+    }
+    field = field_map[metric]
+
+    series: list[dict] = []
+    for m in mods:
+        snaps = (
+            await session.execute(
+                select(ModSnapshot.captured_at, field)
+                .where(ModSnapshot.mod_id == m.id, ModSnapshot.captured_at >= cutoff)
+                .order_by(ModSnapshot.captured_at.asc())
+            )
+        ).all()
+        if not snaps:
+            continue
+        series.append({
+            "mod_id": m.id,
+            "label": m.title or m.name,
+            "app_name": m.app_name,
+            "points": [
+                {"t": ts.isoformat(), "v": int(v) if v is not None else None}
+                for ts, v in snaps
+            ],
+        })
+
+    all_games = sorted({m.app_name for m in (
+        await session.execute(select(Mod).where(Mod.public.is_(True)))
+    ).scalars().all() if m.app_name})
+
+    return templates.TemplateResponse(
+        request, "dashboard.html",
+        {
+            "series": series,
+            "metric": metric,
+            "days": days,
+            "active_game": game,
+            "all_games": all_games,
+            "mod_count": len(series),
+        },
     )
 
 

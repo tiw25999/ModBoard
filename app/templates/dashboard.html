@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Compare growth — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Compare</span>
+    <h1>Growth <span class="serif-accent">across</span> mods</h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Overlay {{ metric }} for {{ mod_count }} mod{{ "" if mod_count == 1 else "s" }} · last {{ days }} day{{ "" if days == 1 else "s" }}</span>
+    </div>
+  </div>
+  <div class="meta"></div>
+</section>
+
+<form method="get" action="/dashboard" class="dash-filterbar">
+  <div class="dash-filter">
+    <label>Metric</label>
+    <select class="input" name="metric" onchange="this.form.submit()">
+      {% for m in ["subscribers", "visitors", "favorites", "comments"] %}
+        <option value="{{ m }}" {% if metric == m %}selected{% endif %}>{{ m|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="dash-filter">
+    <label>Game</label>
+    <select class="input" name="game" onchange="this.form.submit()">
+      <option value="">All games</option>
+      {% for g in all_games %}
+        <option value="{{ g }}" {% if active_game == g %}selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="dash-filter">
+    <label>Window</label>
+    <select class="input" name="days" onchange="this.form.submit()">
+      {% for d in [1, 7, 14, 30, 90, 180] %}
+        <option value="{{ d }}" {% if days == d %}selected{% endif %}>{{ d }} day{{ "" if d == 1 else "s" }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="chart-card">
+  <div class="chart-meta">
+    <span class="label">Metric · <b>{{ metric }}</b></span>
+    <span class="points">{{ mod_count }} mod{{ "" if mod_count == 1 else "s" }}</span>
+  </div>
+  {% if series %}
+  <div class="chart-wrap" style="height:420px"><canvas id="multi-chart"></canvas></div>
+  {% else %}
+  <div class="chart-empty">No snapshots in this window — wait for the next poll or adjust filters.</div>
+  {% endif %}
+</div>
+
+{% if series %}
+<section class="dash-section">
+  <div class="section-head">
+    <span class="eyebrow">Series</span>
+    <span class="section-meta">click a row to jump to the mod page</span>
+  </div>
+
+  <ul class="dash-legend">
+    {% for s in series %}
+    <li class="dash-legend-row" data-mod-id="{{ s.mod_id }}">
+      <a href="/mod/{{ s.mod_id }}/stats" class="dash-legend-link">
+        <span class="dash-legend-sw" data-mod-id="{{ s.mod_id }}"></span>
+        <span class="dash-legend-label">{{ s.label }}</span>
+        <span class="dash-legend-meta">
+          {{ s.app_name or "—" }} · {{ s.points|length }} sample{{ "" if s.points|length == 1 else "s" }}
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if series %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<script>
+(function () {
+  const SERIES = {{ series|tojson }};
+  const ctx = document.getElementById("multi-chart");
+  if (!ctx) return;
+
+  const css = getComputedStyle(document.documentElement);
+  const fg2  = css.getPropertyValue("--fg-2").trim() || "#7e7867";
+  const line = css.getPropertyValue("--line").trim() || "#242832";
+
+  // distinct palette — amber stays #1, rest derived from hue rotation
+  const PALETTE = ["#ffb547", "#82c8ff", "#8fe388", "#ff6b6b", "#c38aff", "#ffd28b", "#6f8f4a", "#c75b32", "#5fc8c8", "#e8e0c0"];
+
+  const datasets = SERIES.map((s, i) => {
+    const color = PALETTE[i % PALETTE.length];
+    return {
+      label: s.label,
+      data: s.points.map(p => ({ x: p.t, y: p.v })),
+      borderColor: color,
+      backgroundColor: color + "20",
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: color,
+      pointHoverBorderColor: "#000",
+      pointHoverBorderWidth: 2,
+      fill: false,
+      modId: s.mod_id,
+    };
+  });
+
+  // paint legend swatches to match palette
+  document.querySelectorAll(".dash-legend-sw").forEach(el => {
+    const modId = el.dataset.modId;
+    const ds = datasets.find(d => String(d.modId) === modId);
+    if (ds) el.style.background = ds.borderColor;
+  });
+
+  new Chart(ctx, {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      parsing: false,
+      interaction: { mode: "nearest", axis: "x", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#0e1014",
+          borderColor: line,
+          borderWidth: 1,
+          titleColor: "#f1e7d3",
+          bodyColor: "#ffd28b",
+          padding: 12,
+          titleFont: { family: "JetBrains Mono", size: 11 },
+          bodyFont:  { family: "JetBrains Mono", size: 13 },
+        },
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: { unit: "day", displayFormats: { day: "MMM d" } },
+          grid: { color: line, drawTicks: false },
+          ticks: { color: fg2, font: { family: "JetBrains Mono", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+        },
+        y: {
+          grid: { color: line },
+          ticks: { color: fg2, font: { family: "JetBrains Mono", size: 10 }, precision: 0 },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}
