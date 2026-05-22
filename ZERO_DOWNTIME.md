@@ -35,23 +35,15 @@ If you're upgrading a server that currently runs the old compose
 ```bash
 cd /home/tew/projects/ModBoard
 git pull
-docker compose up -d --build       # builds new image, starts app1+app2+caddy
+docker compose up -d --build
 ```
 
-Then update the **Cloudflare Tunnel** public hostname target:
+That's it. **No Cloudflare dashboard change needed** — the `caddy`
+service declares a docker-network alias `app`, so the tunnel's
+existing target `http://app:8000` keeps working, but `app` now
+resolves to caddy (which round-robins to app1/app2).
 
-1. Go to **https://one.dash.cloudflare.com** → Networks → Tunnels
-2. Click your tunnel (`workshopmods`)
-3. Public hostname → click the `workshopmods.org` row → **Edit**
-4. Change **Service URL** from `http://app:8000` → `http://caddy:8000`
-5. Save
-
-That single dashboard edit is the only manual step. cloudflared
-hot-reloads its routing config from Cloudflare's side — no
-container restart needed.
-
-After the cutover, the next `./deploy.sh` and every one after it is
-zero-downtime.
+After the cutover, every `./deploy.sh` is zero-downtime.
 
 ---
 
@@ -177,6 +169,13 @@ docker compose exec caddy wget -qO- http://app2:8000/health
 
 ### Cloudflare Tunnel returns 502 but local works
 
-The tunnel target is still pointing at the old `app:8000` service
-which no longer exists. Update it to `caddy:8000` (see one-time
-migration above).
+cloudflared can't resolve `app` (or `caddy`) inside the docker
+network. Check:
+
+```bash
+docker compose exec cloudflared wget -qO- http://app:8000/health
+```
+
+Should print `{"status":"ok"}`. If it fails, the caddy service
+isn't up, isn't healthy, or doesn't have the `app` network alias
+declared in compose.

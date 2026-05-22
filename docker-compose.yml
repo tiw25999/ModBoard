@@ -43,9 +43,20 @@ services:
       - caddy_config:/config
     ports:
       # Bind to loopback only — Cloudflare Tunnel reaches us via the
-      # docker network (service name `caddy`), not via the host port.
-      # The host port is just so deploy.sh can run smoke checks.
+      # docker network (service name `caddy` or alias `app`), not via
+      # the host port. The host port is just so deploy.sh can run
+      # smoke checks.
       - "127.0.0.1:8000:8000"
+    networks:
+      default:
+        aliases:
+          # `app` is the legacy hostname the Cloudflare Tunnel was
+          # already configured to dial back when there was a single
+          # `app` service. Keeping the alias here means cutting over
+          # to the new caddy+app1+app2 topology requires ZERO
+          # dashboard changes — the tunnel target `http://app:8000`
+          # now resolves to caddy, which load-balances to app1/app2.
+          - app
     depends_on:
       - app1
       - app2
