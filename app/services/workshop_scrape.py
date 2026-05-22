@@ -11,6 +11,7 @@ COMMENT_URL = (
     "https://steamcommunity.com/comment/PublishedFile_Public/render/"
     "{creator_id}/{mod_id}/"
 )
+CHANGELOG_URL = "https://steamcommunity.com/sharedfiles/filedetails/changelog/{mod_id}"
 UA = "Mozilla/5.0 (compatible; ModBoard/0.1)"
 
 
@@ -103,6 +104,86 @@ def _parse_comments_html(html: str) -> list[ScrapedComment]:
             "author_name": author_name,
             "author_profile_url": profile_url,
             "author_avatar_url": avatar_url,
+            "body_html": body_html,
+            "posted_at": posted_at,
+        })
+    return out
+
+
+class ScrapedChangelog(TypedDict):
+    post_id: str
+    headline: str | None
+    author_name: str | None
+    author_profile_url: str | None
+    body_html: str
+    posted_at: datetime | None
+
+
+_HEADLINE_DATE_RE = re.compile(
+    r"^Update:\s*(?P<day>\d{1,2})\s+(?P<mon>[A-Za-z]+)(?:,\s*(?P<year>\d{4}))?\s*@\s*"
+    r"(?P<hour>\d{1,2}):(?P<min>\d{2})\s*(?P<ampm>am|pm)",
+    re.IGNORECASE,
+)
+_MONTHS = {m.lower(): i for i, m in enumerate(
+    ["", "January", "February", "March", "April", "May", "June",
+     "July", "August", "September", "October", "November", "December"],
+)}
+
+
+def _parse_changelog_headline(text: str) -> datetime | None:
+    m = _HEADLINE_DATE_RE.match(text.strip())
+    if not m:
+        return None
+    mon_str = m.group("mon").lower()
+    mon = _MONTHS.get(mon_str, 0)
+    if not mon:
+        # Steam sometimes abbreviates ("Sep" vs "September") — prefix match
+        for name, idx in _MONTHS.items():
+            if name and name.startswith(mon_str[:3]):
+                mon = idx
+                break
+    if not mon:
+        return None
+    year = int(m.group("year")) if m.group("year") else datetime.now(timezone.utc).year
+    hour = int(m.group("hour")) % 12
+    if m.group("ampm").lower() == "pm":
+        hour += 12
+    try:
+        return datetime(year, mon, int(m.group("day")), hour, int(m.group("min")), tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+async def fetch_changelog(mod_id: int) -> list[ScrapedChangelog]:
+    async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": UA}) as client:
+        r = await client.get(CHANGELOG_URL.format(mod_id=mod_id))
+        r.raise_for_status()
+    soup = BeautifulSoup(r.text, "lxml")
+    out: list[ScrapedChangelog] = []
+    for box in soup.select("div.detailBox.changeLogCtn"):
+        assert isinstance(box, Tag)
+        body_p = box.find("p", id=True)
+        if not isinstance(body_p, Tag):
+            continue
+        post_id = body_p.get("id")
+        if not isinstance(post_id, str) or not post_id.isdigit():
+            continue
+        headline_node = box.select_one(".changelog.headline")
+        headline = headline_node.get_text(" ", strip=True) if isinstance(headline_node, Tag) else None
+        author_node = box.select_one(".changelog.author a")
+        author_name = None
+        author_url = None
+        if isinstance(author_node, Tag):
+            author_name = author_node.get_text(strip=True)
+            href = author_node.get("href")
+            author_url = href if isinstance(href, str) else None
+        posted_at = _parse_changelog_headline(headline or "")
+        body_html = body_p.decode_contents().strip()
+        out.append({
+            "post_id": post_id,
+            "headline": headline,
+            "author_name": author_name,
+            "author_profile_url": author_url,
             "body_html": body_html,
             "posted_at": posted_at,
         })

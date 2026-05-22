@@ -7,9 +7,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Mod, ModComment, ModSnapshot
+from app.models import Mod, ModChangelog, ModComment, ModSnapshot
 from app.services.steam_api import get_published_file_details
-from app.services.workshop_scrape import fetch_comments, scrape_display_labels
+from app.services.workshop_scrape import fetch_changelog, fetch_comments, scrape_display_labels
 
 log = logging.getLogger(__name__)
 
@@ -78,11 +78,45 @@ async def poll_once() -> None:
                 favorites_display=labels["favorites"],
             )
             session.add(snap)
-            # also sync title/description on the mod row
+            # sync title / thumbnail / description from API (description always
+            # refreshed in case the author edits the Workshop page)
             if api.get("title") and not mod.title:
                 mod.title = api["title"]
             if api.get("preview_url") and not mod.thumbnail_url:
                 mod.thumbnail_url = api["preview_url"]
+            if api.get("description") is not None:
+                mod.description = api["description"]
+
+            try:
+                changelog_entries = await fetch_changelog(mod.id)
+            except Exception as e:
+                log.warning("changelog fetch failed for %s: %s", mod.id, e)
+                changelog_entries = []
+            if changelog_entries:
+                now = datetime.now(timezone.utc)
+                stmt = pg_insert(ModChangelog).values([
+                    {
+                        "mod_id": mod.id,
+                        "post_id": ch["post_id"],
+                        "headline": ch["headline"],
+                        "author_name": ch["author_name"],
+                        "author_profile_url": ch["author_profile_url"],
+                        "body_html": ch["body_html"],
+                        "posted_at": ch["posted_at"],
+                        "scraped_at": now,
+                    }
+                    for ch in changelog_entries
+                ])
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["post_id"],
+                    set_={
+                        "body_html": stmt.excluded.body_html,
+                        "headline": stmt.excluded.headline,
+                        "posted_at": stmt.excluded.posted_at,
+                        "scraped_at": stmt.excluded.scraped_at,
+                    },
+                )
+                await session.execute(stmt)
         await session.commit()
         log.info("polled %d mods", len(mods))
 
