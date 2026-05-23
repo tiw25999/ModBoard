@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Debug — Admin — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Admin · diagnostics</span>
+    <h1>System <span class="serif-accent">debug</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Live numbers — refresh to re-sample.</span>
+    </div>
+  </div>
+  <div class="meta">
+    <a href="/admin" class="btn">← Dashboard</a>
+  </div>
+</section>
+
+<div class="kpi-grid">
+  <div class="kpi"><span class="k">Postgres</span><span class="v" style="font-size:18px">{{ pg_version[:6] or "?" }}</span><span class="sub">version</span></div>
+  <div class="kpi"><span class="k">Connections</span><span class="v">{{ pg_conns }}</span><span class="sub">active to db</span></div>
+  <div class="kpi"><span class="k">Pool size</span><span class="v">{{ pool.size }}</span><span class="sub">target</span></div>
+  <div class="kpi"><span class="k">Pool out</span><span class="v">{{ pool.checked_out }}</span><span class="sub">in use right now</span></div>
+  <div class="kpi"><span class="k">Pool overflow</span><span class="v">{{ pool.overflow }}</span><span class="sub">beyond target</span></div>
+  <div class="kpi"><span class="k">Cache entries</span><span class="v">{{ cache_entries }}</span><span class="sub">in-memory TTL</span></div>
+  <div class="kpi"><span class="k">Rate-limit keys</span><span class="v">{{ rl_entries }}</span><span class="sub">per-IP buckets</span></div>
+  <div class="kpi"><span class="k">Migration</span><span class="v" style="font-size:14px;font-family:var(--f-mono)">{{ alembic_head[:8] or "?" }}</span><span class="sub">alembic head</span></div>
+</div>
+
+<section class="prose-section" style="margin-top:var(--s-5)">
+  <div class="section-head">
+    <span class="eyebrow">Table row counts</span>
+  </div>
+  <div class="responsive-table">
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <thead style="color:var(--fg-3);font-size:11px;letter-spacing:.1em;text-transform:uppercase">
+      <tr>
+        <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--line-1)">Table</th>
+        <th style="text-align:right;padding:8px 12px;border-bottom:1px solid var(--line-1)">Rows</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tbl, n in counts.items() %}
+      <tr style="border-bottom:1px solid var(--line-1)">
+        <td style="padding:8px 12px;font-family:var(--f-mono);font-size:13px"><code>{{ tbl }}</code></td>
+        <td style="padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--amber)">
+          {% if n < 0 %}—{% else %}{{ "{:,}".format(n) }}{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="prose-section" style="margin-top:var(--s-5)">
+  <div class="section-head">
+    <span class="eyebrow">Useful Postgres queries</span>
+  </div>
+  <div class="prose" style="font-size:13px">
+    <p>SSH into the server, then:</p>
+    <pre>docker compose exec db psql -U modboard
+
+-- Top 10 slowest queries (needs pg_stat_statements extension)
+SELECT round(mean_exec_time::numeric, 1) AS ms, calls, query
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC LIMIT 10;
+
+-- Largest tables on disk
+SELECT relname,
+       pg_size_pretty(pg_total_relation_size(c.oid)) AS size
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r'
+ORDER BY pg_total_relation_size(c.oid) DESC LIMIT 10;
+
+-- Unused indexes (candidates to drop)
+SELECT schemaname, relname, indexrelname, idx_scan
+FROM pg_stat_user_indexes
+WHERE idx_scan = 0
+ORDER BY pg_relation_size(indexrelid) DESC;</pre>
+  </div>
+</section>
+
+{% endblock %}

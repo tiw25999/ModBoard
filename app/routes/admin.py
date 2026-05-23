@@ -238,6 +238,81 @@ async def api_docs_page(request: Request):
     return templates.TemplateResponse(request, "admin_api_docs.html", {})
 
 
+# ---------- ops dashboard --------------------------------------------------
+
+@router.get("/debug", response_class=HTMLResponse)
+async def debug_page(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Live numbers that help when investigating "is it slow?" reports:
+    DB pool, in-memory cache, table row counts, recent migration. Read-only."""
+    from app.db import engine
+    from app.services import cache as _cache_mod
+    from app.services import ratelimit as _rl_mod
+    from sqlalchemy import text as _text
+
+    # SQLAlchemy pool stats — checked-out, overflow, etc.
+    pool = engine.pool
+    pool_info = {
+        "size": getattr(pool, "size", lambda: 0)(),
+        "checked_in": getattr(pool, "checkedin", lambda: 0)(),
+        "checked_out": getattr(pool, "checkedout", lambda: 0)(),
+        "overflow": getattr(pool, "overflow", lambda: 0)(),
+    }
+
+    # In-memory cache size
+    cache_entries = len(getattr(_cache_mod, "_store", {}))
+    rl_entries = len(getattr(_rl_mod, "_buckets", {}))
+
+    # Row counts (cheap on indexed tables; cap with EXPLAIN if needed)
+    counts: dict[str, int] = {}
+    for tbl in (
+        "users", "mods", "mod_snapshots", "mod_comments", "mod_changelogs",
+        "mod_discussions", "forum_threads", "forum_posts", "forum_upvotes",
+        "forum_reactions", "notifications", "mod_subscriptions",
+        "news_posts", "mod_roadmap_items", "security_events", "admin_api_keys",
+    ):
+        try:
+            n = (await session.execute(_text(f"SELECT count(*) FROM {tbl}"))).scalar()
+            counts[tbl] = int(n or 0)
+        except Exception:
+            counts[tbl] = -1
+
+    # Postgres version + active connection count
+    pg_version = ""
+    pg_conns = 0
+    try:
+        pg_version = (await session.execute(_text("SHOW server_version"))).scalar() or ""
+        pg_conns = int((await session.execute(
+            _text("SELECT count(*) FROM pg_stat_activity")
+        )).scalar() or 0)
+    except Exception:
+        pass
+
+    # Current alembic head
+    alembic_head = ""
+    try:
+        alembic_head = (await session.execute(
+            _text("SELECT version_num FROM alembic_version")
+        )).scalar() or ""
+    except Exception:
+        pass
+
+    return templates.TemplateResponse(
+        request, "admin_debug.html",
+        {
+            "pool": pool_info,
+            "cache_entries": cache_entries,
+            "rl_entries": rl_entries,
+            "counts": counts,
+            "pg_version": pg_version,
+            "pg_conns": pg_conns,
+            "alembic_head": alembic_head,
+        },
+    )
+
+
 @router.post("/mods")
 async def add_mod(
     workshop_id: int = Form(...),

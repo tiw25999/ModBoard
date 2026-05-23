@@ -40,6 +40,24 @@ async def _latest_snapshot(session: AsyncSession, mod_id: int) -> ModSnapshot | 
     return (await session.execute(q)).scalar_one_or_none()
 
 
+async def _latest_snapshots_by_mod(
+    session: AsyncSession, mod_ids: list[int]
+) -> dict[int, ModSnapshot]:
+    """One Postgres-flavoured query (`DISTINCT ON`) instead of N+1 — used
+    on the homepage where we render `len(mods)` rows and previously fired
+    one snapshot SELECT per row. Goes from N+1 → 1 trip."""
+    if not mod_ids:
+        return {}
+    q = (
+        select(ModSnapshot)
+        .where(ModSnapshot.mod_id.in_(mod_ids))
+        .order_by(ModSnapshot.mod_id, ModSnapshot.captured_at.desc())
+        .distinct(ModSnapshot.mod_id)
+    )
+    rows = (await session.execute(q)).scalars().all()
+    return {s.mod_id: s for s in rows}
+
+
 async def _require_mod(session: AsyncSession, mod_id: int) -> Mod:
     mod = await session.get(Mod, mod_id)
     if mod is None or not mod.public:
@@ -72,13 +90,13 @@ async def index(request: Request, session: AsyncSession = Depends(get_db)):
             .order_by(Mod.app_name.nulls_last(), Mod.name)
         )
     ).scalars().all()
-    # Group by parent app/game. Mods whose app_name hasn't been resolved yet
-    # land under "Unknown" so they remain visible.
+    # One bulk query for snapshots instead of N+1 — page load on a 100-mod
+    # homepage drops from ~100 round trips to 2 (mods + snapshots).
+    snaps = await _latest_snapshots_by_mod(session, [m.id for m in mods])
     games: "OrderedDict[str, list[dict]]" = OrderedDict()
     for m in mods:
         bucket = m.app_name or "Unknown game"
-        snap = await _latest_snapshot(session, m.id)
-        games.setdefault(bucket, []).append({"mod": m, "snap": snap})
+        games.setdefault(bucket, []).append({"mod": m, "snap": snaps.get(m.id)})
     return templates.TemplateResponse(
         request, "mod_list.html",
         {"games": games, "total_mods": len(mods)},

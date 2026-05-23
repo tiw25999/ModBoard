@@ -3,7 +3,10 @@
    Inspired by Project Zomboid's amber-on-black radio aesthetic
    ========================================================= */
 
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=EB+Garamond:ital,wght@1,500&display=swap");
+/* Fonts are loaded via <link> tags in base.html (preconnect + parallel
+   stylesheet fetch). Using @import here would serialize the request
+   chain — HTML → CSS → fonts CSS → woff — adding 2 extra round trips
+   to first paint. */
 
 :root {
   /* palette */

@@ -56,7 +56,19 @@ if len(_settings.session_secret) < 32 or _settings.session_secret in (
         "print(secrets.token_urlsafe(48))'`) before booting."
     )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Static files served with aggressive caching. We bust caches by
+# bumping the `?v=N` query string in <link>/<script> tags rather than
+# changing filenames, so it's safe to tell browsers + Cloudflare to
+# keep responses for a year.
+class _CachedStaticFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+app.mount("/static", _CachedStaticFiles(directory="app/static"), name="static")
 
 # Expose `safe_url` as a Jinja filter so every template that renders a
 # user-controlled href can pass it through:  href="{{ url|safe_url }}"
@@ -144,6 +156,46 @@ async def limit_request_size(request: Request, call_next):
 # decorator order — outermost first, innermost last — places it
 # between security_headers and admin_gate.
 app.middleware("http")(csrf_middleware)
+
+
+# Short-TTL edge cache for hot anonymous GETs. Anonymous = no session
+# cookie + not an admin. Tells Cloudflare it may cache /, /forum,
+# /news, /privacy, /mod/{id} HTML for 60 seconds — practically
+# eliminates DB load from the homepage burst when promoted.
+_CACHEABLE_PATHS = ("/", "/forum", "/news", "/privacy")
+_CACHEABLE_PREFIXES = ("/mod/", "/u/")
+
+
+def _is_cacheable_anon_get(request: Request) -> bool:
+    if request.method != "GET":
+        return False
+    if request.query_params:
+        return False  # search / filter pages are personal enough; skip
+    if request.cookies.get("mb_session") or request.cookies.get("mb_admin"):
+        return False
+    path = request.url.path
+    if path in _CACHEABLE_PATHS:
+        return True
+    return any(path.startswith(p) and path.count("/") <= 2 for p in _CACHEABLE_PREFIXES)
+
+
+@app.middleware("http")
+async def anon_html_cache(request: Request, call_next):
+    response = await call_next(request)
+    if _is_cacheable_anon_get(request) and 200 <= response.status_code < 300:
+        # public  = CDNs + browsers can store
+        # s-maxage=60 = Cloudflare edge cache TTL (1 min)
+        # max-age=0  = browser revalidates immediately so a user sees
+        #              their own newly-posted content as soon as they
+        #              navigate back (the edge still absorbs the rest)
+        response.headers.setdefault(
+            "Cache-Control",
+            "public, s-maxage=60, max-age=0, stale-while-revalidate=30",
+        )
+        # Vary so a logged-in user's request doesn't get served from
+        # the anon-cached version
+        response.headers.setdefault("Vary", "Cookie")
+    return response
 
 
 @app.middleware("http")

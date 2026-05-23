@@ -9,6 +9,11 @@
 }
 
 :8000 {
+	# Compress every response with Brotli when the client supports it
+	# (Chrome/FF/Safari/Edge all do) and gzip otherwise. Saves ~25%
+	# bandwidth on HTML/CSS/JS over gzip alone.
+	encode zstd br gzip
+
 	log {
 		output stdout
 		format json
