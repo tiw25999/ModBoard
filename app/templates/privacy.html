@@ -26,7 +26,8 @@
     <p>We do <b>not</b> store passwords (Google handles sign-in), credit-card data (Stripe handles donations), IP addresses (only kept in-memory briefly for rate-limiting), or any tracking pixels / third-party analytics SDKs.</p>
 
     <h2>Cookies we set</h2>
-    <table style="width:100%;border-collapse:collapse;margin:var(--s-3) 0">
+    <div class="responsive-table" style="margin:var(--s-3) 0">
+    <table style="width:100%;border-collapse:collapse">
       <thead><tr style="text-align:left;color:var(--fg-3);font-size:12px;text-transform:uppercase;letter-spacing:.08em">
         <th style="padding:8px 12px;border-bottom:1px solid var(--line-1)">Cookie</th>
         <th style="padding:8px 12px;border-bottom:1px solid var(--line-1)">Purpose</th>
@@ -40,6 +41,7 @@
         <tr><td style="padding:8px 12px"><code>mb_oauth_*</code></td><td style="padding:8px 12px">Short-lived CSRF / PKCE state during Google sign-in</td><td style="padding:8px 12px">10 minutes</td></tr>
       </tbody>
     </table>
+    </div>
     <p>All cookies are <code>HttpOnly</code> (not readable by page JavaScript) and <code>Secure</code> (HTTPS only) in production. None of them are used for advertising or shared with third parties.</p>
 
     <h2>Your rights</h2>

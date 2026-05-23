@@ -3309,3 +3309,204 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }
+
+/* =============================================================
+   RESPONSIVE — small-screen polish
+   Breakpoints chosen against real devices:
+     1024px  iPad Pro portrait, small laptop
+      820px  iPad Air / iPad mini portrait
+      720px  large phone landscape
+      640px  iPhone Pro Max / Pixel landscape / portrait split-screen
+      480px  Galaxy S Ultra / iPhone 14 Pro
+      380px  iPhone SE, Galaxy S22, small Android
+   ============================================================= */
+
+/* ---- universal touch tweaks (any pointer:coarse) ---- */
+@media (hover: none) and (pointer: coarse) {
+  /* Disable visual hover transforms that look glitchy on touch
+     (the hover state sticks after a tap). */
+  .modlist li:hover,
+  .thread-row:hover,
+  .roadmap-card:hover { transform: none; }
+  .modlist li:hover img { transform: none; }
+}
+
+/* ---- horizontal-scroll wrapper for wide tables on small screens.
+     Wrap any wide <table> in <div class="responsive-table">…</div>. ---- */
+.responsive-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.responsive-table > table { min-width: 640px; }
+.responsive-table::after {
+  /* hint that there's more to scroll — only visible at narrow widths */
+  content: "";
+  display: none;
+}
+
+/* ---- Tablet portrait / large phone (≤820px) ---- */
+@media (max-width: 820px) {
+  /* page header: stack title + meta */
+  .page-head {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: var(--s-3);
+  }
+  .page-head .meta {
+    text-align: left;
+    justify-self: start;
+  }
+}
+
+/* ---- Standard mobile (≤640px) ---- */
+@media (max-width: 640px) {
+  main {
+    padding: var(--s-5) clamp(14px, 4vw, 24px) var(--s-7);
+  }
+  h1 { font-size: clamp(22px, 7.5vw, 32px); }
+  h2 { font-size: 18px; }
+  h3 { font-size: 15px; }
+
+  /* ---- Mod list: thumb + body on row 1, metrics chips on row 2 ---- */
+  .modlist li {
+    grid-template-columns: 72px 1fr;
+    grid-template-rows: auto auto;
+    gap: var(--s-3);
+    padding: var(--s-3);
+  }
+  .modlist a.thumb { width: 72px; height: 72px; }
+  .modlist .body { min-width: 0; }
+  .modlist .title { font-size: 16px; white-space: normal; line-height: 1.25; }
+  .modlist .slug { font-size: 10px; letter-spacing: 0.1em; }
+  .modlist .metrics {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s-2);
+    text-align: left;
+    padding-top: var(--s-3);
+    margin-top: 2px;
+    border-top: 1px dashed var(--line-1);
+  }
+  .modlist .metric .v { font-size: 16px; }
+  .modlist .metric .k { font-size: 10px; }
+
+  /* ---- Forum thread page chrome ---- */
+  .reaction-bar { flex-wrap: wrap; gap: 4px; }
+  .reaction-btn { padding: 6px 10px; }
+  .thread-actions-row { flex-wrap: wrap; gap: 6px; }
+  .thread-actions-row > * { flex: 0 0 auto; }
+
+  /* Banner: wrap on small screens so long titles don't overflow */
+  .site-banner {
+    flex-wrap: wrap;
+    text-align: left;
+    padding: var(--s-3);
+    gap: 6px;
+  }
+  .site-banner .banner-title { flex: 1 1 100%; }
+
+  /* Top-of-page nav banners / scroll lists */
+  .mod-tabs { padding: 3px; }
+  .mod-tab { padding: 8px 12px; font-size: 10px; letter-spacing: 0.14em; }
+
+  /* Touch target floor (40px ≈ Apple HIG min). */
+  .btn, .btn-admin-link, .btn-danger-link, .bell-btn, .user-chip {
+    min-height: 40px;
+  }
+  .topnav .nav-link { padding: 14px 16px; font-size: 13px; }
+
+  /* Tables in prose: scroll horizontally, never overflow the page.
+     A child <table> keeps its native layout — no display:block hack. */
+  .prose-section table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  /* Make sure the API-keys / privacy tables don't squash columns
+     so the values stay readable on mobile (user can scroll). */
+  .prose-section table tbody td,
+  .prose-section table thead th { white-space: nowrap; }
+
+  /* KPI grid — already 2-col at 640 (existing), tighten gap */
+  .kpi-grid { gap: var(--s-2); }
+  .kpi { padding: var(--s-3); }
+  .kpi .v { font-size: 22px; }
+
+  /* Profile head: avatar on top, name below */
+  .profile-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-3);
+  }
+  .profile-avatar { width: 64px; height: 64px; }
+}
+
+/* ---- Small mobile (≤480px) ---- */
+@media (max-width: 480px) {
+  /* Trim the header further so brand + bell + chip fit on one row */
+  header {
+    grid-template-columns: 1fr auto;
+    padding: 8px 12px;
+    gap: var(--s-2);
+  }
+  .nav-toggle { width: 32px; height: 32px; padding: 6px; }
+  .bell-btn { padding: 4px 8px; }
+  .user-chip { padding: 4px 6px; gap: 6px; }
+  .user-chip img,
+  .user-chip-initial { width: 22px; height: 22px; }
+  .nav-exit { font-size: 10px; padding: 8px 10px !important; }
+
+  /* Headlines */
+  h1 { font-size: 22px; }
+  .eyebrow { font-size: 10px; letter-spacing: 0.2em; }
+
+  /* Modlist gets tighter */
+  .modlist a.thumb { width: 64px; height: 64px; }
+  .modlist .metric .v { font-size: 15px; }
+  .modlist .metric .k { font-size: 9px; }
+  .modlist .slug .dot { margin: 0 4px; }
+
+  /* Per-mod tabs scroll horizontally — keep readable */
+  .mod-tabs { gap: 0; }
+  .mod-tab { padding: 8px 10px; }
+
+  /* Search results / discussion lists tighter */
+  .search-row { padding: var(--s-3); }
+
+  /* Mint-key page chips fit on one row even on narrow phones */
+  .ttl-chips button { padding: 5px 8px; font-size: 11px; }
+}
+
+/* ---- Extra-small (≤380px — iPhone SE, small Android) ---- */
+@media (max-width: 380px) {
+  main { padding-left: 12px; padding-right: 12px; }
+  h1 { font-size: 20px; }
+  .pulse-dot { display: none; }   /* free up header space */
+  header .brand { font-size: 11px; letter-spacing: 0.18em; }
+  .topnav .nav-link { font-size: 12px; padding: 12px 12px; }
+
+  /* Modlist: drop to 2 metric columns when 3 won't fit comfortably */
+  .modlist .metrics { grid-template-columns: 1fr 1fr; }
+  .modlist .metric:last-child { grid-column: 1 / -1; text-align: left; }
+}
+
+/* ---- Landscape phones (height ≤ 500px) ---- */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Don't pin a sticky header that eats half the viewport */
+  header { position: static; }
+  .detail-hero { position: static !important; }
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

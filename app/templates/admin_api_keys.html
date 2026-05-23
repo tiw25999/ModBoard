@@ -189,6 +189,7 @@
   </div>
 
   {% if keys %}
+  <div class="responsive-table">
   <table style="width:100%;border-collapse:collapse;font-size:14px">
     <thead style="text-align:left;color:var(--fg-3);font-size:12px;text-transform:uppercase;letter-spacing:.08em">
       <tr>
@@ -232,6 +233,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <div class="thread-empty">No API keys yet — mint one above.</div>
   {% endif %}
