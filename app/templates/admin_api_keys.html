@@ -30,24 +30,156 @@
 
 <section class="prose-section">
   <div class="section-head">
-    <span class="eyebrow">Create new key</span>
+    <span class="eyebrow">Mint a new key</span>
+    <span class="section-meta">Bearer token for <code>/api/admin/*</code></span>
   </div>
-  <form method="post" action="/admin/api-keys" class="forum-form" style="display:flex;gap:var(--s-3);align-items:end;flex-wrap:wrap">
+
+  <form method="post" action="/admin/api-keys" class="forum-form mint-form">
     <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
-    <div class="field" style="flex:1;min-width:220px">
-      <label>Label</label>
-      <input class="input" type="text" name="label" maxlength="64" required
-             placeholder="e.g. import-script">
+
+    <div class="mint-grid">
+      <div class="field">
+        <label>Label</label>
+        <input class="input" type="text" name="label" maxlength="64" required
+               placeholder="e.g. import-script, n8n-prod, github-action"
+               autocomplete="off">
+        <small class="mint-hint">A human-readable name so future-you knows what this key was for.</small>
+      </div>
+
+      <div class="field">
+        <label>Time to live</label>
+        <div class="ttl-row">
+          <input class="input ttl-num" type="number" name="ttl_hours" id="ttl-input"
+                 value="24" min="1" max="720" required>
+          <span class="ttl-unit">hours</span>
+        </div>
+        <div class="ttl-chips" role="group" aria-label="Quick TTL presets">
+          <button type="button" data-h="1">1h</button>
+          <button type="button" data-h="6">6h</button>
+          <button type="button" data-h="24" aria-pressed="true">24h</button>
+          <button type="button" data-h="168">7d</button>
+          <button type="button" data-h="720">30d</button>
+        </div>
+      </div>
     </div>
-    <div class="field" style="width:140px">
-      <label>TTL (hours)</label>
-      <input class="input" type="number" name="ttl_hours" value="24" min="1" max="720" required>
+
+    <div class="mint-submit">
+      <button type="submit" class="btn primary mint-btn">
+        <span>+ Mint key</span>
+        <span class="arrow">↵</span>
+      </button>
+      <span class="mint-meta">
+        <span class="dot">●</span> Shown <b>once</b> on creation · revocable any time
+      </span>
     </div>
-    <button type="submit" class="btn primary">+ Mint key</button>
   </form>
-  <p style="color:var(--fg-2);font-size:13px;margin-top:8px">
-    Default 24h. Max 720h (30 days). Revoke any time.
-  </p>
+
+  <style>
+    .mint-form { padding: 0; }
+    .mint-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(220px, 320px);
+      gap: var(--s-4);
+      margin-bottom: var(--s-4);
+    }
+    @media (max-width: 720px) { .mint-grid { grid-template-columns: 1fr; } }
+
+    .mint-form .field label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--fg-3);
+      margin-bottom: 6px;
+    }
+    .mint-hint {
+      display: block;
+      color: var(--fg-3);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .ttl-row { position: relative; }
+    .ttl-num { padding-right: 56px !important; font-variant-numeric: tabular-nums; }
+    .ttl-unit {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--fg-3);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .ttl-chips {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .ttl-chips button {
+      background: var(--ink-1);
+      border: 1px solid var(--line-1);
+      color: var(--fg-2);
+      font-family: var(--f-mono, monospace);
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 120ms, color 120ms, background 120ms;
+    }
+    .ttl-chips button:hover { border-color: var(--line-2); color: var(--fg-0); }
+    .ttl-chips button[aria-pressed="true"] {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: rgba(255, 181, 71, 0.08);
+    }
+
+    .mint-submit {
+      display: flex;
+      align-items: center;
+      gap: var(--s-3);
+      padding-top: var(--s-3);
+      border-top: 1px dashed var(--line-1);
+      flex-wrap: wrap;
+    }
+    .mint-btn {
+      padding: 10px 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .mint-btn .arrow {
+      margin-left: 8px;
+      opacity: 0.7;
+      font-size: 13px;
+    }
+    .mint-meta {
+      color: var(--fg-3);
+      font-size: 12px;
+    }
+    .mint-meta .dot { color: var(--amber); margin-right: 4px; }
+  </style>
+
+  <script nonce="{{ request.state.csp_nonce }}">
+    (function () {
+      var input = document.getElementById("ttl-input");
+      var chips = document.querySelectorAll(".ttl-chips button");
+      function setActive(h) {
+        chips.forEach(function (c) {
+          c.setAttribute("aria-pressed", String(c.dataset.h === String(h)));
+        });
+      }
+      chips.forEach(function (c) {
+        c.addEventListener("click", function () {
+          input.value = c.dataset.h;
+          setActive(c.dataset.h);
+          input.focus();
+        });
+      });
+      input.addEventListener("input", function () { setActive(input.value); });
+    })();
+  </script>
 </section>
 
 <section class="prose-section">
