@@ -28,137 +28,231 @@
 </div>
 {% endif %}
 
-<section class="prose-section">
-  <div class="section-head">
-    <span class="eyebrow">Mint a new key</span>
-    <span class="section-meta">Bearer token for <code>/api/admin/*</code></span>
-  </div>
+<section class="mint-card">
+  <header class="mint-card-head">
+    <div>
+      <span class="eyebrow">Mint a new key</span>
+      <h2 class="mint-card-title">Generate a bearer token</h2>
+    </div>
+    <span class="mint-card-tag"><code>/api/admin/*</code></span>
+  </header>
 
-  <form method="post" action="/admin/api-keys" class="forum-form mint-form">
+  <form method="post" action="/admin/api-keys" class="mint-form">
     <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
 
-    <div class="mint-grid">
-      <div class="field">
-        <label>Label</label>
-        <input class="input" type="text" name="label" maxlength="64" required
-               placeholder="e.g. import-script, n8n-prod, github-action"
-               autocomplete="off">
-        <small class="mint-hint">A human-readable name so future-you knows what this key was for.</small>
-      </div>
+    <div class="mint-field">
+      <label for="mint-label">Label</label>
+      <input id="mint-label" class="mint-input" type="text" name="label"
+             maxlength="64" required autocomplete="off"
+             placeholder="e.g. import-script, n8n-prod, github-action">
+      <small class="mint-hint">A human-readable name so future-you knows what this key was for.</small>
+    </div>
 
-      <div class="field">
-        <label>Time to live</label>
-        <div class="ttl-row">
-          <input class="input ttl-num" type="number" name="ttl_hours" id="ttl-input"
-                 value="24" min="1" max="720" required>
-          <span class="ttl-unit">hours</span>
-        </div>
-        <div class="ttl-chips" role="group" aria-label="Quick TTL presets">
-          <button type="button" data-h="1">1h</button>
-          <button type="button" data-h="6">6h</button>
-          <button type="button" data-h="24" aria-pressed="true">24h</button>
-          <button type="button" data-h="168">7d</button>
-          <button type="button" data-h="720">30d</button>
-        </div>
+    <div class="mint-field">
+      <label>Time to live</label>
+      <div class="ttl-chips" role="group" aria-label="Quick TTL presets">
+        <button type="button" data-h="1">1 hour</button>
+        <button type="button" data-h="6">6 hours</button>
+        <button type="button" data-h="24" aria-pressed="true">24 hours</button>
+        <button type="button" data-h="168">7 days</button>
+        <button type="button" data-h="720">30 days</button>
+      </div>
+      <div class="ttl-custom">
+        <span class="ttl-custom-label">Custom</span>
+        <input id="ttl-input" class="mint-input ttl-num" type="number" name="ttl_hours"
+               value="24" min="1" max="720" required aria-label="TTL in hours">
+        <span class="ttl-custom-unit">hours</span>
+        <span class="ttl-custom-hint">min 1 · max 720</span>
       </div>
     </div>
 
     <div class="mint-submit">
-      <button type="submit" class="btn primary mint-btn">
-        <span>+ Mint key</span>
-        <span class="arrow">↵</span>
-      </button>
-      <span class="mint-meta">
-        <span class="dot">●</span> Shown <b>once</b> on creation · revocable any time
-      </span>
+      <p class="mint-meta">
+        <span class="dot">●</span>
+        The plain key is shown <b>once</b> on creation — copy it before leaving this page. Revocable any time.
+      </p>
+      <button type="submit" class="mint-btn">+ Mint key</button>
     </div>
   </form>
 
   <style>
-    .mint-form { padding: 0; }
-    .mint-grid {
-      display: grid;
-      grid-template-columns: minmax(260px, 1fr) minmax(220px, 320px);
-      gap: var(--s-4);
-      margin-bottom: var(--s-4);
+    .mint-card {
+      background: linear-gradient(180deg, var(--ink-1), #0b0d11);
+      border: 1px solid var(--line);
+      border-radius: var(--r-md);
+      padding: var(--s-5);
+      margin-bottom: var(--s-5);
     }
-    @media (max-width: 720px) { .mint-grid { grid-template-columns: 1fr; } }
-
-    .mint-form .field label {
+    .mint-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--s-3);
+      padding-bottom: var(--s-4);
+      margin-bottom: var(--s-5);
+      border-bottom: 1px solid var(--line-1);
+      flex-wrap: wrap;
+    }
+    .mint-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 6px 0 0;
+      color: var(--fg-0);
+    }
+    .mint-card-tag {
+      font-family: var(--f-mono);
       font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
       color: var(--fg-3);
-      margin-bottom: 6px;
+      padding-top: 4px;
+    }
+
+    .mint-form { display: flex; flex-direction: column; gap: var(--s-5); }
+
+    .mint-field { display: flex; flex-direction: column; gap: 10px; }
+    .mint-field > label {
+      font-family: var(--f-mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg-2);
+    }
+
+    /* Unified input — same height + font everywhere. The big one is full width;
+       the TTL custom field uses the same control inside a contained box. */
+    .mint-input {
+      width: 100%;
+      height: 44px;
+      padding: 0 14px;
+      background: var(--ink-0);
+      border: 1px solid var(--line-2);
+      border-radius: var(--r-sm);
+      color: var(--fg-0);
+      font-family: var(--f-mono);
+      font-size: 14px;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+    .mint-input::placeholder { color: var(--fg-3); }
+    .mint-input:focus {
+      outline: none;
+      border-color: var(--amber);
+      background: var(--ink-2);
+      box-shadow: 0 0 0 3px var(--amber-glow);
     }
     .mint-hint {
-      display: block;
       color: var(--fg-3);
       font-size: 12px;
-      margin-top: 6px;
+      line-height: 1.5;
     }
 
-    .ttl-row { position: relative; }
-    .ttl-num { padding-right: 56px !important; font-variant-numeric: tabular-nums; }
-    .ttl-unit {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--fg-3);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      pointer-events: none;
-    }
-
+    /* TTL preset pills — primary control. Custom number is secondary. */
     .ttl-chips {
       display: flex;
-      gap: 6px;
-      margin-top: 8px;
+      gap: 8px;
       flex-wrap: wrap;
     }
     .ttl-chips button {
-      background: var(--ink-1);
-      border: 1px solid var(--line-1);
-      color: var(--fg-2);
-      font-family: var(--f-mono, monospace);
-      font-size: 12px;
-      padding: 5px 10px;
-      border-radius: 4px;
+      flex: 1 1 auto;
+      min-width: 80px;
+      background: var(--ink-0);
+      border: 1px solid var(--line-2);
+      color: var(--fg-1);
+      font-family: var(--f-mono);
+      font-size: 13px;
+      padding: 12px 14px;
+      border-radius: var(--r-sm);
       cursor: pointer;
-      transition: border-color 120ms, color 120ms, background 120ms;
+      transition: border-color .15s ease, color .15s ease, background .15s ease;
     }
-    .ttl-chips button:hover { border-color: var(--line-2); color: var(--fg-0); }
+    .ttl-chips button:hover { border-color: var(--fg-3); color: var(--fg-0); }
     .ttl-chips button[aria-pressed="true"] {
       border-color: var(--amber);
       color: var(--amber);
-      background: rgba(255, 181, 71, 0.08);
+      background: rgba(255, 181, 71, 0.06);
+      box-shadow: inset 0 0 0 1px var(--amber);
     }
 
+    .ttl-custom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--ink-0);
+      border: 1px dashed var(--line-1);
+      border-radius: var(--r-sm);
+      font-family: var(--f-mono);
+      font-size: 12px;
+      color: var(--fg-3);
+      flex-wrap: wrap;
+    }
+    .ttl-custom-label {
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--fg-2);
+    }
+    .ttl-num {
+      width: 90px;
+      height: 36px;
+      text-align: center;
+      padding: 0 10px;
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+    }
+    .ttl-custom-unit { color: var(--fg-2); }
+    .ttl-custom-hint { margin-left: auto; color: var(--fg-3); }
+
+    /* Submit row: meta on the left, full-emphasis button on the right.
+       On mobile they stack with the button full-width. */
     .mint-submit {
       display: flex;
       align-items: center;
-      gap: var(--s-3);
-      padding-top: var(--s-3);
-      border-top: 1px dashed var(--line-1);
+      justify-content: space-between;
+      gap: var(--s-4);
+      padding-top: var(--s-4);
+      border-top: 1px solid var(--line-1);
       flex-wrap: wrap;
     }
-    .mint-btn {
-      padding: 10px 22px;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-    .mint-btn .arrow {
-      margin-left: 8px;
-      opacity: 0.7;
-      font-size: 13px;
-    }
     .mint-meta {
-      color: var(--fg-3);
-      font-size: 12px;
+      flex: 1 1 280px;
+      margin: 0;
+      color: var(--fg-2);
+      font-size: 13px;
+      line-height: 1.55;
     }
     .mint-meta .dot { color: var(--amber); margin-right: 4px; }
+    .mint-meta b { color: var(--amber); font-weight: 600; }
+
+    .mint-btn {
+      flex: 0 0 auto;
+      min-width: 180px;
+      height: 44px;
+      padding: 0 28px;
+      background: var(--amber);
+      color: var(--ink-0);
+      border: 1px solid var(--amber);
+      border-radius: var(--r-sm);
+      font-family: var(--f-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: filter .15s ease, transform .15s ease, box-shadow .15s ease;
+    }
+    .mint-btn:hover { filter: brightness(1.08); box-shadow: 0 4px 18px var(--amber-glow); }
+    .mint-btn:active { transform: translateY(1px); }
+
+    @media (max-width: 640px) {
+      .mint-card { padding: var(--s-4); }
+      .ttl-chips button { flex: 1 1 calc(50% - 4px); }
+      .mint-submit { flex-direction: column-reverse; align-items: stretch; }
+      .mint-btn { width: 100%; min-width: 0; }
+      .mint-meta { text-align: center; }
+      .ttl-custom { justify-content: center; }
+      .ttl-custom-hint { margin-left: 0; width: 100%; text-align: center; }
+    }
+    @media (max-width: 380px) {
+      .ttl-chips button { flex: 1 1 100%; }
+    }
   </style>
 
   <script nonce="{{ request.state.csp_nonce }}">
@@ -174,7 +268,6 @@
         c.addEventListener("click", function () {
           input.value = c.dataset.h;
           setActive(c.dataset.h);
-          input.focus();
         });
       });
       input.addEventListener("input", function () { setActive(input.value); });
