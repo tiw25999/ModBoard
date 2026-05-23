@@ -32,6 +32,7 @@ from app.services.oauth_google import (
     make_state,
     pkce_challenge,
 )
+from app.services.audit import log_event
 from app.services.ratelimit import check_and_record, client_ip, reset as _rl_reset
 from app.services.session import (
     SESSION_MAX_AGE,
@@ -84,16 +85,23 @@ async def admin_login_submit(
     username: str = Form(...),
     password: str = Form(...),
     next: str = Form("/admin"),
+    session: AsyncSession = Depends(get_db),
 ):
     # Per-IP token bucket — 5 attempts / 15 min. Defence in depth
     # behind Cloudflare's per-minute rule for when CF gets bypassed.
     ip = client_ip(request)
     if not check_and_record(f"admin_login:{ip}"):
+        await log_event(session, "admin_login_throttled", request,
+                        detail=f"username={username[:32]}")
+        await session.commit()
         return RedirectResponse(
             f"/auth/login?error=Too+many+attempts.+Try+again+in+15+min.&next={_safe_next(next)}",
             status_code=303,
         )
     if not verify_admin_credentials(username.strip(), password):
+        await log_event(session, "admin_login_fail", request,
+                        detail=f"username={username[:32]}")
+        await session.commit()
         return RedirectResponse(
             f"/auth/login?error=Invalid+admin+credentials&next={_safe_next(next)}",
             status_code=303,
@@ -101,6 +109,9 @@ async def admin_login_submit(
     # Successful login → clear the failure counter so a future typo
     # doesn't lock the admin out.
     _rl_reset(f"admin_login:{ip}")
+    await log_event(session, "admin_login_success", request,
+                    detail=f"username={username[:32]}")
+    await session.commit()
     response = RedirectResponse(_safe_next(next), status_code=303)
     set_admin_session(response)
     return response
@@ -202,6 +213,9 @@ async def google_callback(
     # an identity-spoofing vector even if we don't currently look up users
     # by email.
     if not email_verified:
+        await log_event(session, "oauth_login_reject", request,
+                        detail=f"sub={sub[-8:]} email_verified=false")
+        await session.commit()
         raise HTTPException(
             403,
             detail="Your Google account's email is not verified. "
@@ -264,6 +278,35 @@ async def google_callback(
     # (defends against session fixation: a pre-planted cookie value
     # becomes invalid the moment its target logs in).
     user.session_jti = secrets.token_urlsafe(16)
+
+    # Backfill ownership of anon posts written from this browser.
+    # Without this, a user who replied as anon then logged in via
+    # the same browser would (a) lose those posts from their profile,
+    # (b) miss notifications about replies to them, (c) still be
+    # vulnerable to the cookie-token edit window if someone copied
+    # their mb_token. Migrate them under the new account.
+    from app.services.anon import get_token
+    from app.models import ForumPost, ForumThread
+    from sqlalchemy import update as _update
+    anon_token = get_token(request)
+    if anon_token:
+        await session.execute(
+            _update(ForumThread)
+            .where(
+                ForumThread.author_token == anon_token,
+                ForumThread.author_user_id.is_(None),
+            )
+            .values(author_user_id=user.id)
+        )
+        await session.execute(
+            _update(ForumPost)
+            .where(
+                ForumPost.author_token == anon_token,
+                ForumPost.author_user_id.is_(None),
+            )
+            .values(author_user_id=user.id)
+        )
+    await log_event(session, "oauth_login_success", request, user_id=user.id)
     await session.commit()
 
     response = RedirectResponse(next_path, status_code=303)
@@ -389,3 +432,133 @@ async def clear_notifications(
     await session.execute(_delete(Notification).where(Notification.user_id == user.id))
     await session.commit()
     return RedirectResponse("/auth/me/notifications", status_code=303)
+
+
+# ---------- GDPR self-service endpoints --------------------------------
+
+@router.get("/me/delete", response_class=HTMLResponse)
+async def me_delete_confirm(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Confirm-before-delete page. Posts to the same path."""
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse("/auth/login?next=/auth/me/delete", status_code=303)
+    # Counts so the user sees what they're about to lose / anonymize.
+    from sqlalchemy import func as _func
+    n_threads = int((await session.execute(
+        select(_func.count()).select_from(ForumThread).where(ForumThread.author_user_id == user.id)
+    )).scalar() or 0)
+    n_replies = int((await session.execute(
+        select(_func.count()).select_from(ForumPost).where(ForumPost.author_user_id == user.id)
+    )).scalar() or 0)
+    return templates.TemplateResponse(
+        request, "account_delete.html",
+        {"user": user, "n_threads": n_threads, "n_replies": n_replies},
+    )
+
+
+@router.post("/me/delete")
+async def me_delete_submit(
+    request: Request,
+    confirm: str = Form(""),
+    session: AsyncSession = Depends(get_db),
+):
+    """GDPR Article 17 — right to erasure. Anonymizes posts (we don't
+    delete them because that would orphan replies + delete other
+    users' context) and removes the user row. Notifications and
+    subscriptions cascade automatically."""
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse("/auth/login", status_code=303)
+    if confirm.strip().lower() != "delete":
+        return RedirectResponse("/auth/me/delete?error=type+DELETE+to+confirm", status_code=303)
+    from sqlalchemy import update as _update
+    # Anonymize threads + posts so the conversation stays readable
+    # but no longer ties to a real identity.
+    await session.execute(
+        _update(ForumThread)
+        .where(ForumThread.author_user_id == user.id)
+        .values(author_user_id=None, author_name="deleted user", author_token="deleted")
+    )
+    await session.execute(
+        _update(ForumPost)
+        .where(ForumPost.author_user_id == user.id)
+        .values(author_user_id=None, author_name="deleted user", author_token="deleted")
+    )
+    await log_event(session, "account_delete", request, user_id=user.id,
+                    detail=f"email={user.email}")
+    await session.delete(user)
+    await session.commit()
+    response = RedirectResponse("/?account_deleted=1", status_code=303)
+    clear_session(response)
+    return response
+
+
+@router.get("/me/export")
+async def me_export(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """GDPR Article 20 — right to data portability. Returns a JSON
+    dump of everything we store about the caller."""
+    user = await current_user(request, session)
+    if user is None:
+        return RedirectResponse("/auth/login?next=/auth/me/export", status_code=303)
+
+    threads = (await session.execute(
+        select(ForumThread).where(ForumThread.author_user_id == user.id)
+        .order_by(desc(ForumThread.created_at))
+    )).scalars().all()
+    posts = (await session.execute(
+        select(ForumPost).where(ForumPost.author_user_id == user.id)
+        .order_by(desc(ForumPost.created_at))
+    )).scalars().all()
+    notes = (await session.execute(
+        select(Notification).where(Notification.user_id == user.id)
+        .order_by(desc(Notification.created_at)).limit(500)
+    )).scalars().all()
+    from app.models import ModSubscription
+    subs = (await session.execute(
+        select(ModSubscription).where(ModSubscription.user_id == user.id)
+    )).scalars().all()
+
+    await log_event(session, "account_export", request, user_id=user.id)
+    await session.commit()
+
+    payload = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "avatar_url": user.avatar_url,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
+        },
+        "threads": [{
+            "id": t.id, "title": t.title, "kind": t.kind, "status": t.status,
+            "body": t.body_raw, "created_at": t.created_at.isoformat(),
+            "upvotes": t.upvotes, "reply_count": t.reply_count,
+        } for t in threads],
+        "posts": [{
+            "id": p.id, "thread_id": p.thread_id, "body": p.body_raw,
+            "created_at": p.created_at.isoformat(),
+        } for p in posts],
+        "notifications": [{
+            "kind": n.kind, "thread_id": n.thread_id, "post_id": n.post_id,
+            "mod_id": n.mod_id, "actor_name": n.actor_name, "payload": n.payload,
+            "created_at": n.created_at.isoformat(),
+            "read_at": n.read_at.isoformat() if n.read_at else None,
+        } for n in notes],
+        "subscriptions": [{
+            "mod_id": s.mod_id,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        } for s in subs],
+    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        payload,
+        headers={"Content-Disposition": f'attachment; filename="modboard-export-{user.id}.json"'},
+    )

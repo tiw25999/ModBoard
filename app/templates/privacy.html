@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Privacy — ModBoard{% endblock %}
+{% block description %}What data ModBoard collects, where it goes, and how to delete it.{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Policy</span>
+    <h1>Privacy &amp; <span class="serif-accent">data</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Plain-language summary of what we store, why, and your rights.</span>
+    </div>
+  </div>
+</section>
+
+<div class="prose-section" style="max-width:780px">
+  <div class="prose">
+    <h2>What we store</h2>
+    <ul>
+      <li><b>If you sign in with Google:</b> your Google user ID, email, display name, and avatar URL — only for letting you sign in and showing your byline on posts.</li>
+      <li><b>Forum activity:</b> the threads, replies, upvotes, and emoji reactions you create. Public by design.</li>
+      <li><b>Mod subscriptions:</b> which mods you've followed, so we can notify you about new comments / changelogs.</li>
+      <li><b>Steam Workshop data we scrape:</b> mod metadata, comments, and changelogs — public on Steam, re-served here for tracking convenience.</li>
+      <li><b>Cookies:</b> see below.</li>
+    </ul>
+    <p>We do <b>not</b> store passwords (Google handles sign-in), credit-card data (Stripe handles donations), IP addresses (only kept in-memory briefly for rate-limiting), or any tracking pixels / third-party analytics SDKs.</p>
+
+    <h2>Cookies we set</h2>
+    <table style="width:100%;border-collapse:collapse;margin:var(--s-3) 0">
+      <thead><tr style="text-align:left;color:var(--fg-3);font-size:12px;text-transform:uppercase;letter-spacing:.08em">
+        <th style="padding:8px 12px;border-bottom:1px solid var(--line-1)">Cookie</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--line-1)">Purpose</th>
+        <th style="padding:8px 12px;border-bottom:1px solid var(--line-1)">TTL</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:8px 12px"><code>mb_session</code></td><td style="padding:8px 12px">Keeps you signed in after Google login</td><td style="padding:8px 12px">30 days</td></tr>
+        <tr><td style="padding:8px 12px"><code>mb_admin</code></td><td style="padding:8px 12px">Admin sign-in (only on the operator's browser)</td><td style="padding:8px 12px">8 hours</td></tr>
+        <tr><td style="padding:8px 12px"><code>mb_csrf</code></td><td style="padding:8px 12px">CSRF protection for form submissions</td><td style="padding:8px 12px">30 days</td></tr>
+        <tr><td style="padding:8px 12px"><code>mb_token</code></td><td style="padding:8px 12px">Anonymous identity for upvote-once-per-thread and the post-edit window</td><td style="padding:8px 12px">1 year</td></tr>
+        <tr><td style="padding:8px 12px"><code>mb_oauth_*</code></td><td style="padding:8px 12px">Short-lived CSRF / PKCE state during Google sign-in</td><td style="padding:8px 12px">10 minutes</td></tr>
+      </tbody>
+    </table>
+    <p>All cookies are <code>HttpOnly</code> (not readable by page JavaScript) and <code>Secure</code> (HTTPS only) in production. None of them are used for advertising or shared with third parties.</p>
+
+    <h2>Your rights</h2>
+    <ul>
+      <li><b>Export</b> a JSON dump of everything tied to your account: <a href="/auth/me/export">/auth/me/export</a></li>
+      <li><b>Delete</b> your account (anonymizes your posts, removes everything else): <a href="/auth/me/delete">/auth/me/delete</a></li>
+      <li><b>Question</b> something not covered here: email the operator — see contact below.</li>
+    </ul>
+
+    <h2>Where data lives</h2>
+    <p>The site runs on a self-hosted Postgres database on the operator's hardware in Thailand, fronted by Cloudflare. Google handles OAuth sign-in; Stripe handles donations; UptimeRobot pings <code>/health</code> from its US monitoring servers. No data is sold or shared with advertising networks.</p>
+
+    <h2>Retention</h2>
+    <ul>
+      <li>Backup snapshots are kept for <b>14 days</b>, then deleted.</li>
+      <li>Notifications older than what you read are kept until you clear them.</li>
+      <li>Security audit log (failed admin logins, etc.) is kept for incident response — no PII beyond IP + user-agent.</li>
+    </ul>
+
+    <h2>Steam Workshop content</h2>
+    <p>We re-serve publicly-visible Steam Workshop pages (mod descriptions, comments, changelogs) as a tracking convenience. If you're a Steam user whose comment was scraped and you'd like it removed, contact the operator and we'll add the offending mod to a deny list.</p>
+
+    <h2>Contact</h2>
+    <p>Open an issue or email the operator at the address listed on the GitHub repository.</p>
+  </div>
+</div>
+
+{% endblock %}

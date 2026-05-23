@@ -118,7 +118,7 @@
   {% block scripts %}{% endblock %}
 
   {# Register service worker — enables Install app prompt + static caching #}
-  <script>
+  <script nonce="{{ request.state.csp_nonce }}">
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () =>
         navigator.serviceWorker.register("/static/sw.js").catch(() => {})

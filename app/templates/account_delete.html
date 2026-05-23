@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Delete account — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Account</span>
+    <h1>Delete your <span class="serif-accent">account</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Permanent. Cannot be undone.</span>
+    </div>
+  </div>
+  <div class="meta">
+    <a href="/auth/me" class="btn">← Cancel</a>
+  </div>
+</section>
+
+<div class="prose-section" style="max-width:720px">
+  <div class="prose">
+    <p>This will:</p>
+    <ul>
+      <li><b>Anonymize</b> your <b>{{ n_threads }}</b> thread{{ "" if n_threads == 1 else "s" }}
+        and <b>{{ n_replies }}</b> repl{{ "y" if n_replies == 1 else "ies" }} — they
+        keep showing in the forum but the author becomes "deleted user".</li>
+      <li><b>Delete</b> your user account, email, name, avatar, and notifications.</li>
+      <li><b>Remove</b> all your mod subscriptions.</li>
+      <li><b>Sign you out</b> of every device.</li>
+    </ul>
+    <p style="color:var(--fg-2)">If you'd rather keep your content but stop signing in,
+       just sign out instead. You can always come back without re-creating data.</p>
+
+    {% if request.query_params.get("error") %}
+    <div class="thread-empty" style="border-color:#7a2828;color:#ff9d9d;margin:var(--s-4) 0">
+      {{ request.query_params.get("error")|replace("+", " ") }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/auth/me/delete" style="margin-top:var(--s-5)">
+      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+      <div class="field">
+        <label>Type <code>DELETE</code> in all caps to confirm</label>
+        <input class="input" type="text" name="confirm" autocomplete="off" required
+               pattern="DELETE" title="Type DELETE in capital letters">
+      </div>
+      <button type="submit" class="btn"
+              style="background:#7a2828;border-color:#7a2828;color:#fff">
+        Permanently delete my account
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

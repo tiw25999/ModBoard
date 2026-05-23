@@ -41,10 +41,77 @@ chmod 600 .env
 # DB dumps land here. Tighten so other host users can't read them.
 mkdir -p backups
 chmod 700 backups
+```
 
-# (Optional but recommended) encrypt new dumps with `age`:
-#   apt install age && age-keygen -o ~/.modboard.key
-# then edit the db-backup service to pipe pg_dump → age -R recipient.
+### Encrypt + ship backups offsite (recommended)
+
+The default `db-backup` service writes plaintext `*.dump` files to
+`./backups/` on the same disk as `pgdata`. **Host loss = total data
+loss.** Two-step fix:
+
+1. **Encrypt at rest with `age`** (single-recipient public-key encryption,
+   tiny binary, available in apt):
+
+   ```bash
+   sudo apt install -y age
+   # Generate a keypair (PRIVATE KEY — back this up to a password manager).
+   age-keygen -o ~/.modboard-backup.key
+   # Note the public recipient line, e.g. age1abc...
+   ```
+
+   Edit the `db-backup` service in `docker-compose.yml`:
+
+   ```yaml
+   db-backup:
+     image: alpine:3.20   # we need age + postgres client
+     volumes:
+       - ./backups:/backups
+       - ~/.modboard-backup.pub:/key.pub:ro
+     environment:
+       PGPASSWORD: ${POSTGRES_PASSWORD}
+       AGE_RECIPIENTS_FILE: /key.pub
+     entrypoint:
+       - sh
+       - -c
+       - |
+         apk add --no-cache postgresql15-client age && \
+         while true; do
+           pg_dump -h db -U "$$POSTGRES_USER" --format=custom "$$POSTGRES_DB" \
+             | age -R /key.pub > "/backups/modboard_$$(date +%F).dump.age"
+           find /backups -name "modboard_*.dump.age" -mtime +14 -delete
+           sleep 86400
+         done
+   ```
+
+   To restore later:
+
+   ```bash
+   age -d -i ~/.modboard-backup.key < /backups/modboard_YYYY-MM-DD.dump.age \
+     | pg_restore -h db -U modboard -d modboard --clean
+   ```
+
+2. **Sync to offsite cold storage** with `rclone` to Backblaze B2 (≤$5/mo
+   for our volume) or any S3-compatible bucket with object-lock retention:
+
+   ```bash
+   # One-time: rclone config (B2 token + bucket)
+   # Then a daily systemd-timer (or cron @daily):
+   0 4 * * *  /usr/bin/rclone copy /home/tew/projects/ModBoard/backups \
+                b2:modboard-backups --transfers 2 --min-age 1h
+   ```
+
+   The `.age` files are useless without the private key, so the cloud
+   provider sees opaque blobs.
+
+### Back up `.env` too
+
+If the disk dies you lose `SESSION_SECRET` → every signed cookie
+becomes invalid AND admin credentials are gone. Stash an encrypted
+copy alongside the backups:
+
+```bash
+age -R ~/.modboard-backup.pub < .env > .env.age
+# then include .env.age in the rclone sync above
 ```
 
 ## One-time migration from the old single-`app` setup

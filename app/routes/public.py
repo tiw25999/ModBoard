@@ -233,6 +233,13 @@ async def donate(request: Request):
     return templates.TemplateResponse(request, "donate.html", {})
 
 
+@router.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    """Static privacy policy page — required for EU users (ePrivacy
+    + GDPR) and good citizenship anywhere else."""
+    return templates.TemplateResponse(request, "privacy.html", {})
+
+
 @router.post("/mod/{mod_id}/subscribe")
 async def toggle_mod_subscription(
     request: Request,

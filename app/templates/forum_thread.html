@@ -3,7 +3,7 @@
 {% block description %}{{ thread.body_raw|truncate(200) }}{% endblock %}
 {% block og_type %}article{% endblock %}
 {% block extra_head %}
-<script type="application/ld+json">
+<script type="application/ld+json" nonce="{{ request.state.csp_nonce }}">
 {
   "@context": "https://schema.org",
   "@type": "DiscussionForumPosting",

@@ -36,6 +36,16 @@ x-app: &app
     start_period: 20s
   restart: unless-stopped
   networks: [edge, backend]
+  # Bound per-container resources so a runaway poller / pathological
+  # regex on a giant body can't starve the rest of the box (db, caddy).
+  # 512M is generous for FastAPI; 1 CPU absorbs short bursts.
+  deploy:
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 512M
+      reservations:
+        memory: 128M
   # Per-container log rotation so a chatty app or runaway log can't
   # silently fill the host disk (which would crash db-backup with no
   # alert). Set here explicitly instead of relying on the host
@@ -91,6 +101,13 @@ services:
 
   db:
     image: postgres:15-alpine@sha256:df7bca0066e6f60cc3dd32faa70caddec20e2c22b58932f79498e5704b23854a
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          memory: 256M
     env_file: .env
     volumes:
       - pgdata:/var/lib/postgresql/data

@@ -73,18 +73,29 @@ app.include_router(admin_routes.router)
 
 
 # ---- Security headers ---------------------------------------------------
-# Set on every response. CSP is moderately strict (img-src https: allows
-# Steam + Google avatars; 'unsafe-inline' is required for our inline
-# JSON-LD blocks + the SW registration <script> in base.html). frame-
-# ancestors 'none' kills clickjacking; X-Content-Type-Options stops MIME
-# sniffing; Referrer-Policy trims leakage; Permissions-Policy disables
-# sensor APIs we never use.
-_SECURITY_HEADERS = {
-    "Content-Security-Policy": (
+# CSP uses a per-request nonce for inline <script> blocks (JSON-LD, SW
+# registration) instead of 'unsafe-inline'. That means an injected
+# <script> without the nonce — exactly what an XSS would inject —
+# won't execute. style-src keeps 'unsafe-inline' because we use
+# style="..." attributes in dozens of templates; dropping it would be
+# a much larger refactor for a smaller security win.
+_SECURITY_HEADERS_STATIC = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+}
+
+
+def _csp_for(nonce: str) -> str:
+    # cdn.jsdelivr.net is needed for the Chart.js bundle used on the
+    # mod stats page. Everything else stays on 'self'.
+    return (
         "default-src 'self'; "
         "img-src 'self' https: data:; "
         "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
+        f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
         "font-src 'self' data:; "
         "connect-src 'self'; "
         "frame-ancestors 'none'; "
@@ -92,26 +103,18 @@ _SECURITY_HEADERS = {
         "base-uri 'self'; "
         "object-src 'none'; "
         "upgrade-insecure-requests"
-    ),
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
-}
+    )
 
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    import secrets as _secrets
+    nonce = _secrets.token_urlsafe(16)
+    request.state.csp_nonce = nonce
     response = await call_next(request)
-    for k, v in _SECURITY_HEADERS.items():
+    response.headers.setdefault("Content-Security-Policy", _csp_for(nonce))
+    for k, v in _SECURITY_HEADERS_STATIC.items():
         response.headers.setdefault(k, v)
-    # HSTS is now always set — Cloudflare terminates TLS for production
-    # and dev traffic is local. Browsers will only honor it on HTTPS,
-    # so a local dev visit doesn't get pinned.
-    response.headers.setdefault(
-        "Strict-Transport-Security",
-        "max-age=63072000; includeSubDomains; preload",
-    )
     return response
 
 

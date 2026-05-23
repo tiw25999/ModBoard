@@ -1,4 +1,5 @@
 from app.models.admin import AdminUser
+from app.models.audit import AUDIT_KINDS, SecurityEvent
 from app.models.forum import (
     THREAD_KINDS,
     THREAD_STATUSES,
@@ -16,6 +17,8 @@ from app.models.user import User
 
 __all__ = [
     "AdminUser",
+    "AUDIT_KINDS",
+    "SecurityEvent",
     "ForumPost",
     "ForumThread",
     "ForumUpvote",
