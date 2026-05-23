@@ -48,10 +48,14 @@ cyan "→ Deploying commit $NEW_COMMIT"
 # second failed deploy would overwrite the last known-good image with
 # a broken one. We only promote the new image to `:previous` at the
 # end, after the smoke test passes.
-cyan "→ Capturing currently-running image (for safe :previous tag later)..."
-PREV_IMAGE_ID=""
-if PREV_IMAGE_ID=$(docker image inspect --format='{{.Id}}' modboard-app:latest 2>/dev/null); then
-	cyan "  (current modboard-app:latest is ${PREV_IMAGE_ID:0:19}…)"
+cyan "→ Pinning currently-running image with a temp tag (so build can't prune it)..."
+PREV_PINNED=0
+if docker image inspect modboard-app:latest > /dev/null 2>&1; then
+	# Re-tagging keeps the image alive across the upcoming buildx run
+	# (which would otherwise leave the old :latest dangling and let
+	# the daemon GC it before we can promote it to :previous).
+	docker tag modboard-app:latest modboard-app:_rollback_pending
+	PREV_PINNED=1
 fi
 
 cyan "→ Building app image..."
@@ -94,7 +98,14 @@ roll() {
 	if ! wait_healthy "$name"; then
 		red "Rolling deploy failed on $name."
 		red "Old version of the OTHER replica is still serving traffic."
-		red "Run ./rollback.sh to revert both replicas to :previous image."
+		# Promote the pinned previous image to :previous NOW so rollback.sh
+		# has something to revert to — we never reached the success path.
+		if [[ "$PREV_PINNED" -eq 1 ]]; then
+			docker tag modboard-app:_rollback_pending modboard-app:previous
+			docker rmi modboard-app:_rollback_pending > /dev/null 2>&1 || true
+			red "  :previous tag points at the last known-good build."
+		fi
+		red "Run ./rollback.sh to revert both replicas."
 		exit 1
 	fi
 }
@@ -120,13 +131,14 @@ if curl -fsS --max-time 5 https://workshopmods.org/health > /dev/null 2>&1; then
 	green "✓ Public /health OK"
 fi
 
-# ---------- 8. tag :previous now that smoke passed ----------------------
-# Only NOW do we promote the previously-running image to :previous, so
-# a rollback target always points at the last known-good build. Tagging
-# earlier means a second failed deploy would clobber the working tag.
-if [[ -n "$PREV_IMAGE_ID" ]]; then
-	docker tag "$PREV_IMAGE_ID" modboard-app:previous
-	cyan "→ Tagged :previous = ${PREV_IMAGE_ID:0:19}… (rollback target)"
+# ---------- 8. promote rollback target now that smoke passed -----------
+# The new build is verified working — safe to overwrite :previous with
+# the image we just replaced. Tagging only after smoke means a deploy
+# that fails mid-way can't clobber the last known-good rollback target.
+if [[ "$PREV_PINNED" -eq 1 ]]; then
+	docker tag modboard-app:_rollback_pending modboard-app:previous
+	docker rmi modboard-app:_rollback_pending > /dev/null 2>&1 || true
+	cyan "→ Tagged :previous (rollback target ready)"
 fi
 
 # ---------- done ---------------------------------------------------------
