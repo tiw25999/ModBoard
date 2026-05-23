@@ -92,13 +92,16 @@ _SECURITY_HEADERS_STATIC = {
 
 def _csp_for(nonce: str) -> str:
     # cdn.jsdelivr.net is needed for the Chart.js bundle used on the
-    # mod stats page. Everything else stays on 'self'.
+    # mod stats page. Google Fonts is loaded via @import in style.css
+    # (the CSS file itself comes from 'self', but the @import fetches
+    # the actual font CSS from fonts.googleapis.com and the WOFF files
+    # from fonts.gstatic.com).
     return (
         "default-src 'self'; "
         "img-src 'self' https: data:; "
-        "style-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
-        "font-src 'self' data:; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self'; "
         "frame-ancestors 'none'; "
         "form-action 'self'; "
