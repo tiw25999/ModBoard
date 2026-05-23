@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}API keys — Admin — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Admin</span>
+    <h1>API <span class="serif-accent">keys</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Bearer tokens for scripted writes to <code>/api/admin/*</code>.
+      Plain key is shown <b>once</b> on creation — store it now.</span>
+    </div>
+  </div>
+  <div class="meta" style="display:flex;gap:var(--s-2);flex-wrap:wrap">
+    <a href="/admin" class="btn">← Dashboard</a>
+    <a href="/admin/api-docs" class="btn">📖 API docs</a>
+  </div>
+</section>
+
+{% if newly_created %}
+<div class="prose-section" style="border:1px solid var(--amber);background:rgba(255,181,71,0.05);padding:var(--s-4);border-radius:8px;margin-bottom:var(--s-4)">
+  <div class="eyebrow" style="color:var(--amber)">New key — copy now, won't show again</div>
+  <p style="margin-top:8px;color:var(--fg-1)">Label: <b>{{ newly_created_label }}</b></p>
+  <pre style="background:var(--ink-1);padding:var(--s-3);border-radius:6px;overflow-x:auto;font-family:var(--f-mono);font-size:13px;user-select:all">{{ newly_created }}</pre>
+  <p style="color:var(--fg-2);font-size:13px;margin-top:8px">
+    Use as: <code>Authorization: Bearer {{ newly_created[:12] }}…</code>
+  </p>
+</div>
+{% endif %}
+
+<section class="prose-section">
+  <div class="section-head">
+    <span class="eyebrow">Create new key</span>
+  </div>
+  <form method="post" action="/admin/api-keys" class="forum-form" style="display:flex;gap:var(--s-3);align-items:end;flex-wrap:wrap">
+    <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+    <div class="field" style="flex:1;min-width:220px">
+      <label>Label</label>
+      <input class="input" type="text" name="label" maxlength="64" required
+             placeholder="e.g. import-script">
+    </div>
+    <div class="field" style="width:140px">
+      <label>TTL (hours)</label>
+      <input class="input" type="number" name="ttl_hours" value="24" min="1" max="720" required>
+    </div>
+    <button type="submit" class="btn primary">+ Mint key</button>
+  </form>
+  <p style="color:var(--fg-2);font-size:13px;margin-top:8px">
+    Default 24h. Max 720h (30 days). Revoke any time.
+  </p>
+</section>
+
+<section class="prose-section">
+  <div class="section-head">
+    <span class="eyebrow">Existing keys</span>
+    <span class="section-meta">{{ keys|length }} total</span>
+  </div>
+
+  {% if keys %}
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <thead style="text-align:left;color:var(--fg-3);font-size:12px;text-transform:uppercase;letter-spacing:.08em">
+      <tr>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Label</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Prefix</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Created</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Expires</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Last used</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)">Status</th>
+        <th style="padding:10px 8px;border-bottom:1px solid var(--line-1)"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for k in keys %}
+      {% set is_revoked = k.revoked_at is not none %}
+      {% set is_expired = (not is_revoked) and k.expires_at <= now %}
+      {% set is_live = not (is_revoked or is_expired) %}
+      <tr style="border-bottom:1px solid var(--line-1);{% if not is_live %}opacity:0.55{% endif %}">
+        <td style="padding:10px 8px"><b>{{ k.label }}</b></td>
+        <td style="padding:10px 8px"><code>{{ k.key_prefix }}…</code></td>
+        <td style="padding:10px 8px;color:var(--fg-2)">{{ k.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td style="padding:10px 8px;color:var(--fg-2)">{{ k.expires_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td style="padding:10px 8px;color:var(--fg-2)">
+          {% if k.last_used_at %}{{ k.last_used_at.strftime("%Y-%m-%d %H:%M") }}{% else %}—{% endif %}
+        </td>
+        <td style="padding:10px 8px">
+          {% if is_revoked %}<span style="color:#ff9d9d">revoked</span>
+          {% elif is_expired %}<span style="color:var(--fg-3)">expired</span>
+          {% else %}<span style="color:#7cd97c">live</span>{% endif %}
+        </td>
+        <td style="padding:10px 8px">
+          {% if is_live %}
+          <form method="post" action="/admin/api-keys/{{ k.id }}/revoke" style="display:inline"
+                onsubmit="return confirm('Revoke {{ k.label }}? Cannot be undone.');">
+            <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+            <button type="submit" class="btn-danger-link">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="thread-empty">No API keys yet — mint one above.</div>
+  {% endif %}
+</section>
+
+{% endblock %}

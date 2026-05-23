@@ -15,6 +15,7 @@ from app.db import SessionLocal
 from app.services.bbcode import safe_url
 from app.services.csrf import csrf_middleware
 from app.routes import admin as admin_routes
+from app.routes import admin_api as admin_api_routes
 from app.routes import auth as auth_routes
 from app.routes import forum as forum_routes
 from app.routes import public as public_routes
@@ -70,6 +71,7 @@ app.include_router(public_routes.router)
 app.include_router(forum_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(admin_api_routes.router)  # /api/admin/* (bearer-token)
 
 
 # ---- Security headers ---------------------------------------------------

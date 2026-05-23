@@ -32,6 +32,7 @@ CSRF_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 # Keep this list tiny — every entry is an attack surface.
 _EXEMPT_PATHS = (
     "/auth/google/callback",  # cross-origin GET from Google
+    "/api/admin",             # bearer-token API (Authorization header IS the auth)
 )
 
 

@@ -13,6 +13,7 @@ from app.db import get_db
 from app.models import (
     NEWS_KINDS,
     ROADMAP_STATUSES,
+    AdminApiKey,
     ForumPost,
     ForumThread,
     Mod,
@@ -23,6 +24,8 @@ from app.models import (
     NewsPost,
     RoadmapItem,
 )
+from app.services.api_key import mint_key
+from app.services.audit import log_event
 from app.services.poller import poll_once
 from app.services.textfmt import render
 
@@ -162,6 +165,77 @@ async def trigger_poll():
         return RedirectResponse("/admin?polled=busy", status_code=303)
     asyncio.create_task(_poll_once_locked())
     return RedirectResponse("/admin?polled=1", status_code=303)
+
+
+# ---------- admin API keys -----------------------------------------------
+
+@router.get("/api-keys", response_class=HTMLResponse)
+async def api_keys_page(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """List existing API keys + form to mint a new one. The plain
+    secret is only shown ONCE, immediately after creation, via the
+    `new_key` query param the create endpoint redirects to."""
+    keys = (await session.execute(
+        select(AdminApiKey).order_by(AdminApiKey.created_at.desc())
+    )).scalars().all()
+    return templates.TemplateResponse(
+        request, "admin_api_keys.html",
+        {
+            "keys": keys,
+            "now": datetime.now(timezone.utc),
+            "newly_created": request.query_params.get("new_key", ""),
+            "newly_created_label": request.query_params.get("new_label", ""),
+        },
+    )
+
+
+@router.post("/api-keys")
+async def api_keys_create(
+    request: Request,
+    label: str = Form(...),
+    ttl_hours: int = Form(24),
+    session: AsyncSession = Depends(get_db),
+):
+    label = label.strip()[:64] or "unnamed"
+    ttl_hours = max(1, min(720, int(ttl_hours)))  # clamp 1h..30d
+    from datetime import timedelta
+    raw, h, prefix, expires_at = mint_key(timedelta(hours=ttl_hours))
+    now = datetime.now(timezone.utc)
+    session.add(AdminApiKey(
+        key_hash=h, key_prefix=prefix, label=label,
+        created_at=now, expires_at=expires_at,
+    ))
+    await log_event(session, "admin_action", request,
+                    detail=f"create api_key label={label} ttl={ttl_hours}h")
+    await session.commit()
+    from urllib.parse import urlencode
+    qs = urlencode({"new_key": raw, "new_label": label})
+    return RedirectResponse(f"/admin/api-keys?{qs}", status_code=303)
+
+
+@router.post("/api-keys/{key_id}/revoke")
+async def api_keys_revoke(
+    request: Request,
+    key_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    key = await session.get(AdminApiKey, key_id)
+    if key is None:
+        return RedirectResponse("/admin/api-keys?error=not_found", status_code=303)
+    if key.revoked_at is None:
+        key.revoked_at = datetime.now(timezone.utc)
+        await log_event(session, "admin_action", request,
+                        detail=f"revoke api_key id={key.id} label={key.label}")
+        await session.commit()
+    return RedirectResponse("/admin/api-keys?revoked=1", status_code=303)
+
+
+@router.get("/api-docs", response_class=HTMLResponse)
+async def api_docs_page(request: Request):
+    """Reference + curl examples for the bearer-token API."""
+    return templates.TemplateResponse(request, "admin_api_docs.html", {})
 
 
 @router.post("/mods")

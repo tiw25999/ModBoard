@@ -1,4 +1,5 @@
 from app.models.admin import AdminUser
+from app.models.api_key import AdminApiKey
 from app.models.audit import AUDIT_KINDS, SecurityEvent
 from app.models.forum import (
     THREAD_KINDS,
@@ -17,6 +18,7 @@ from app.models.user import User
 
 __all__ = [
     "AdminUser",
+    "AdminApiKey",
     "AUDIT_KINDS",
     "SecurityEvent",
     "ForumPost",

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}API docs — Admin — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Admin</span>
+    <h1>Admin API <span class="serif-accent">reference</span></h1>
+    <div class="detail-id" style="margin-top:10px;color:var(--fg-2)">
+      <span>Bearer-token API for scripted writes. Skip the deploy pipeline when you just need to push data.</span>
+    </div>
+  </div>
+  <div class="meta" style="display:flex;gap:var(--s-2)">
+    <a href="/admin/api-keys" class="btn">🔑 Manage keys</a>
+  </div>
+</section>
+
+<div class="prose-section" style="max-width:920px">
+  <div class="prose">
+
+    <h2>Authentication</h2>
+    <p>Every call needs a <code>mbak_…</code> bearer token. Mint one at
+       <a href="/admin/api-keys">/admin/api-keys</a> (label + TTL),
+       copy it once, store it in your script's secret manager.</p>
+    <pre>Authorization: Bearer mbak_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</pre>
+    <p style="color:var(--fg-2)">Or use <code>X-API-Key: mbak_…</code> if your client can't set Authorization.</p>
+
+    <h3>Verify your key works</h3>
+    <pre>curl -fsS https://workshopmods.org/api/admin/whoami \
+  -H "Authorization: Bearer $MODBOARD_KEY"</pre>
+    <p>Returns the key's label, prefix, created/expires timestamps.</p>
+
+    <h2>Mods</h2>
+
+    <h3>List all tracked mods</h3>
+    <pre>GET  /api/admin/mods</pre>
+    <pre>curl -fsS https://workshopmods.org/api/admin/mods \
+  -H "Authorization: Bearer $MODBOARD_KEY" | jq</pre>
+
+    <h3>Get one mod</h3>
+    <pre>GET  /api/admin/mods/{workshop_id}</pre>
+
+    <h3>Add a mod</h3>
+    <pre>POST /api/admin/mods
+Content-Type: application/json
+
+{"workshop_id": 3724689682, "name": "DayCount", "public": true}</pre>
+    <pre>curl -fsS https://workshopmods.org/api/admin/mods \
+  -H "Authorization: Bearer $MODBOARD_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"workshop_id": 3724689682, "name": "DayCount"}'</pre>
+    <p style="color:var(--fg-2)">Optional fields: <code>workshop_url</code> (auto-built from id if omitted),
+       <code>github_url</code>, <code>public</code> (default true).</p>
+
+    <h3>Bulk-add mods (≤200 per call)</h3>
+    <pre>POST /api/admin/mods/bulk
+Content-Type: application/json
+
+{
+  "items": [
+    {"workshop_id": 1, "name": "ModA"},
+    {"workshop_id": 2, "name": "ModB"}
+  ]
+}</pre>
+    <p>Returns a per-item outcome: <code>created</code> / <code>exists</code> / <code>bad_input</code>.</p>
+
+    <h3>Update a mod (partial)</h3>
+    <pre>PATCH /api/admin/mods/{workshop_id}
+Content-Type: application/json
+
+{"title": "New title", "public": false}</pre>
+    <p>Allowed fields: <code>name</code>, <code>title</code>, <code>workshop_url</code>,
+       <code>github_url</code>, <code>thumbnail_url</code>, <code>public</code>.</p>
+
+    <h3>Delete a mod</h3>
+    <pre>DELETE /api/admin/mods/{workshop_id}</pre>
+    <p>Cascades to snapshots, comments, changelogs, discussions, roadmap, subscriptions.</p>
+
+    <h2>Steam poll trigger</h2>
+    <pre>POST /api/admin/poll</pre>
+    <p>Queues a Steam scrape cycle. Returns immediately (<code>202</code>) with
+       <code>{"status": "queued"}</code> or <code>{"status": "already_running"}</code>.
+       Coalesces concurrent calls so you can't accidentally spawn 10 scrapers.</p>
+
+    <h2>News posts</h2>
+
+    <h3>List</h3>
+    <pre>GET  /api/admin/news</pre>
+
+    <h3>Create</h3>
+    <pre>POST /api/admin/news
+Content-Type: application/json
+
+{
+  "title": "ModBoard is live",
+  "body": "Welcome! **Bold** and *italic* supported. > quote",
+  "kind": "celebration",
+  "show_banner": true
+}</pre>
+    <p>Allowed <code>kind</code>: <code>info</code>, <code>update</code>, <code>warning</code>, <code>celebration</code>.
+       <code>show_banner=true</code> makes the latest active+banner post pop as a site-wide strip.</p>
+
+    <h3>Update / delete</h3>
+    <pre>PATCH  /api/admin/news/{id}
+DELETE /api/admin/news/{id}</pre>
+
+    <h2>Roadmap (per-mod)</h2>
+
+    <h3>List items for a mod</h3>
+    <pre>GET  /api/admin/roadmap/{mod_id}</pre>
+
+    <h3>Create item</h3>
+    <pre>POST /api/admin/roadmap
+Content-Type: application/json
+
+{
+  "mod_id": 3724689682,
+  "title": "Add settings panel",
+  "body": "User-tweakable counter limits.",
+  "status": "in_progress",
+  "position": 1
+}</pre>
+    <p>Allowed <code>status</code>: <code>planned</code>, <code>in_progress</code>, <code>done</code>, <code>cancelled</code>.
+       Lower <code>position</code> appears first.</p>
+
+    <h3>Update / delete</h3>
+    <pre>PATCH  /api/admin/roadmap/{item_id}
+DELETE /api/admin/roadmap/{item_id}</pre>
+
+    <h2>Error format</h2>
+    <p>All non-2xx responses follow:</p>
+    <pre>{"detail": "human-readable reason"}</pre>
+    <ul>
+      <li><b>401</b> — missing/invalid/expired/revoked key</li>
+      <li><b>400</b> — bad input (wrong type, unknown field, enum violation)</li>
+      <li><b>404</b> — target not found</li>
+      <li><b>409</b> — already exists (mod with that workshop_id)</li>
+    </ul>
+
+    <h2>n8n / curl example: import a CSV of mods</h2>
+    <pre>#!/usr/bin/env bash
+set -euo pipefail
+KEY="$MODBOARD_KEY"
+
+# items.csv has lines like:  3724689682,DayCount
+mapfile -t lines < items.csv
+items='[]'
+for line in "${lines[@]}"; do
+  id="${line%%,*}"; name="${line#*,}"
+  items=$(echo "$items" | jq --argjson id "$id" --arg n "$name" \
+    '. += [{"workshop_id":$id,"name":$n}]')
+done
+
+curl -fsS https://workshopmods.org/api/admin/mods/bulk \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"items\":$items}" | jq</pre>
+
+    <h2>Key hygiene</h2>
+    <ul>
+      <li>Keys are sha256-hashed at rest. Losing the plain key = revoke + re-issue.</li>
+      <li>Default TTL is 24h. Pick the shortest window that fits your workflow.</li>
+      <li>Revoke immediately if a key leaks (committed to a repo, posted in chat, etc.).</li>
+      <li>One key per use-case — separate "n8n-prod", "local-import", "github-action" so revocation is surgical.</li>
+      <li>Every API write goes through the same CSRF-exempt path but is logged
+          in <code>security_events</code> via the key's <code>last_used_at</code>.</li>
+    </ul>
+
+  </div>
+</div>
+
+{% endblock %}
