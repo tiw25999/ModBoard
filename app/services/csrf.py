@@ -69,7 +69,14 @@ async def csrf_middleware(request: Request, call_next):
         submitted: str | None = None
         ctype = request.headers.get("content-type", "").lower()
         if "form-urlencoded" in ctype or "multipart/form-data" in ctype:
+            # Critical: buffer the body FIRST so `request.form()` parses
+            # from the cache instead of consuming the receive() stream.
+            # Without this, the downstream route handler sees an empty
+            # body and every `Form(...)` parameter raises 422 — that
+            # would brick all state-changing endpoints, including the
+            # admin login form needed to recover.
             try:
+                await request.body()
                 form = await request.form()
                 v = form.get(CSRF_FIELD)
                 if isinstance(v, str):

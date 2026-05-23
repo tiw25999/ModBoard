@@ -157,10 +157,16 @@ async def google_callback(
     error: str | None = None,
     session: AsyncSession = Depends(get_db),
 ):
+    import logging as _log
+    _logger = _log.getLogger("auth.oauth")
     if error:
-        raise HTTPException(400, detail=f"Google rejected the request: {error}")
+        # Log the raw rejection for diagnostics; show the user a
+        # generic message that doesn't reflect the attacker-controlled
+        # `error` query param back into our error page.
+        _logger.warning("google oauth rejected: %r", error)
+        raise HTTPException(400, detail="Google rejected the sign-in. Please try again.")
     if not code or not state:
-        raise HTTPException(400, detail="Missing code or state")
+        raise HTTPException(400, detail="Missing code or state — please start sign-in again.")
 
     expected_state = request.cookies.get(OAUTH_STATE_COOKIE)
     if not expected_state or expected_state != state:
@@ -173,15 +179,18 @@ async def google_callback(
     try:
         token_resp = await exchange_code(code, code_verifier=pkce_verifier)
     except Exception as e:
-        raise HTTPException(502, detail=f"Token exchange failed: {e}")
+        _logger.warning("google token exchange failed: %r", e)
+        raise HTTPException(502, detail="Couldn't talk to Google. Please try again.")
     access_token = token_resp.get("access_token")
     if not access_token:
-        raise HTTPException(502, detail="No access_token in Google response")
+        _logger.warning("google token response missing access_token: %r", token_resp)
+        raise HTTPException(502, detail="Google did not return an access token. Please try again.")
 
     try:
         info = await fetch_userinfo(access_token)
     except Exception as e:
-        raise HTTPException(502, detail=f"Userinfo fetch failed: {e}")
+        _logger.warning("google userinfo fetch failed: %r", e)
+        raise HTTPException(502, detail="Couldn't fetch your Google profile. Please try again.")
 
     sub = info.get("sub")
     email = info.get("email")
@@ -204,10 +213,19 @@ async def google_callback(
         await session.execute(select(User).where(User.google_sub == sub))
     ).scalar_one_or_none()
     if user is None:
+        raw_name = info.get("name") or info.get("given_name") or f"user-{sub[-6:]}"
+        # Reserve names like "Developer" / "Admin" for the staff label —
+        # a Google user whose display name happens to be "Developer"
+        # would otherwise (a) get the is-dev UI badge by name match
+        # and (b) hijack `@Developer` mentions. Rename to "{name} (G)"
+        # at signup so they keep an identity but lose the trust signal.
+        from app.routes.forum import _RESERVED_MENTION_NAMES
+        if raw_name.strip().lower() in _RESERVED_MENTION_NAMES:
+            raw_name = f"{raw_name} (G)"
         user = User(
             google_sub=sub,
             email=email,
-            name=info.get("name") or info.get("given_name") or email.split("@")[0],
+            name=raw_name,
             avatar_url=info.get("picture"),
             created_at=now,
             last_login_at=now,

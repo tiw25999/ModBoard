@@ -13,6 +13,20 @@
 		output stdout
 		format json
 		level INFO
+		# Don't log OAuth `code` / `state` / search `q` / etc. into
+		# permanent logs — single-use auth tokens or user search
+		# terms have no business sitting in container stdout.
+		format filter {
+			wrap json
+			fields {
+				uri query {
+					replace code REDACTED
+					replace state REDACTED
+					replace q REDACTED
+					replace password REDACTED
+				}
+			}
+		}
 	}
 
 	# Hard cap on inbound request body. The app's own middleware also

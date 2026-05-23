@@ -263,8 +263,21 @@ async def toggle_mod_subscription(
             created_at=datetime.now(timezone.utc),
         ))
     await session.commit()
-    referer = request.headers.get("referer", f"/mod/{mod_id}")
-    return RedirectResponse(referer, status_code=303)
+    # Same-origin redirect target only — never trust the Referer header
+    # as a redirect destination (open redirect → phishing primitive).
+    # Mirrors the _safe_referer pattern from app/routes/forum.py.
+    ref = request.headers.get("referer", "")
+    target = f"/mod/{mod_id}"
+    if ref.startswith("/") and not ref.startswith("//"):
+        if not ref.startswith("/admin") and not ref.startswith("/auth/"):
+            target = ref
+    else:
+        from urllib.parse import urlparse
+        parsed = urlparse(ref)
+        if (parsed.scheme in ("http", "https") and parsed.netloc == request.url.netloc
+                and not parsed.path.startswith(("/admin", "/auth/"))):
+            target = parsed.path or target
+    return RedirectResponse(target, status_code=303)
 
 
 @router.get("/u/{user_id:int}", response_class=HTMLResponse)
@@ -327,7 +340,7 @@ async def public_user_profile(
 @router.get("/search", response_class=HTMLResponse)
 async def search(
     request: Request,
-    q: str = Query(default=""),
+    q: str = Query(default="", max_length=200),
     session: AsyncSession = Depends(get_db),
 ):
     """Cross-system search using Postgres full-text search.

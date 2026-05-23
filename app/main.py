@@ -233,8 +233,33 @@ async def html_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
 
 
+# Cache the DB probe result for 2s so the per-3s Caddy probe doesn't
+# hammer Postgres but UptimeRobot still gets a fresh-enough signal.
+_HEALTH_CACHE: dict[str, object] = {"ok": True, "ts": 0.0}
+
+
 @app.api_route("/health", methods=["GET", "HEAD"])
-async def health() -> dict[str, str]:
-    # UptimeRobot's HTTP monitor defaults to HEAD; Caddy's active
-    # health probe uses GET. Accept both so neither sees 405.
-    return {"status": "ok"}
+async def health():
+    """Lightweight liveness probe.
+
+    UptimeRobot defaults to HEAD; Caddy uses GET. Both go through here.
+    Includes a cached SELECT 1 against the DB so the proxy doesn't
+    happily route traffic to an app instance whose database has
+    silently fallen over.
+    """
+    import time as _time
+    from sqlalchemy import text as _text
+    from fastapi.responses import JSONResponse as _JSONResponse
+    now = _time.time()
+    if now - float(_HEALTH_CACHE["ts"]) > 2.0:
+        ok = True
+        try:
+            async with SessionLocal() as db:
+                await db.execute(_text("SELECT 1"))
+        except Exception:
+            ok = False
+        _HEALTH_CACHE["ok"] = ok
+        _HEALTH_CACHE["ts"] = now
+    if _HEALTH_CACHE["ok"]:
+        return {"status": "ok"}
+    return _JSONResponse({"status": "db_down"}, status_code=503)

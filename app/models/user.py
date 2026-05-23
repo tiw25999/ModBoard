@@ -33,4 +33,6 @@ class User(Base):
     #   - session fixation defence (pre-planted cookies invalidate on login)
     #   - logout invalidates the cookie server-side (not just client-side)
     #   - "log out everywhere" by setting this back to None
-    session_jti: Mapped[str | None] = mapped_column(String(32))
+    # Width set defensively to 64 chars so bumping token_urlsafe(16)→(32)
+    # in future won't silently truncate the jti and break every login.
+    session_jti: Mapped[str | None] = mapped_column(String(64))

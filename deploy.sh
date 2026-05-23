@@ -43,10 +43,15 @@ git pull --ff-only
 NEW_COMMIT=$(git rev-parse --short HEAD)
 cyan "→ Deploying commit $NEW_COMMIT"
 
-# ---------- 2. build (tag previous for rollback) ------------------------
-if docker image inspect modboard-app:latest > /dev/null 2>&1; then
-	cyan "→ Tagging current image as :previous (for rollback)..."
-	docker tag modboard-app:latest modboard-app:previous
+# ---------- 2. build -----------------------------------------------------
+# Note: we do NOT tag `:previous` yet. Premature tagging means a
+# second failed deploy would overwrite the last known-good image with
+# a broken one. We only promote the new image to `:previous` at the
+# end, after the smoke test passes.
+cyan "→ Capturing currently-running image (for safe :previous tag later)..."
+PREV_IMAGE_ID=""
+if PREV_IMAGE_ID=$(docker image inspect --format='{{.Id}}' modboard-app:latest 2>/dev/null); then
+	cyan "  (current modboard-app:latest is ${PREV_IMAGE_ID:0:19}…)"
 fi
 
 cyan "→ Building app image..."
@@ -113,6 +118,15 @@ fi
 # Best-effort public probe (skip silently if no internet)
 if curl -fsS --max-time 5 https://workshopmods.org/health > /dev/null 2>&1; then
 	green "✓ Public /health OK"
+fi
+
+# ---------- 8. tag :previous now that smoke passed ----------------------
+# Only NOW do we promote the previously-running image to :previous, so
+# a rollback target always points at the last known-good build. Tagging
+# earlier means a second failed deploy would clobber the working tag.
+if [[ -n "$PREV_IMAGE_ID" ]]; then
+	docker tag "$PREV_IMAGE_ID" modboard-app:previous
+	cyan "→ Tagged :previous = ${PREV_IMAGE_ID:0:19}… (rollback target)"
 fi
 
 # ---------- done ---------------------------------------------------------

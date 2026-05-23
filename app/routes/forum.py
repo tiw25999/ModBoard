@@ -30,11 +30,19 @@ from app.services.session import current_user
 from app.services.textfmt import extract_mentions, is_likely_spam, render, slugify
 
 
+# Names that should never resolve to a real user account when an `@mention`
+# is being processed — they're trust signals in the UI, not handles. A user
+# who happens to be named "developer" on Google will not intercept `@Developer`
+# pings meant for the staff.
+_RESERVED_MENTION_NAMES = {"developer", "admin", "moderator", "mod", "system", "staff"}
+
+
 async def _notify_mentions(session, raw_body: str, thread_id: int, post_id: int | None,
                             actor_name: str, exclude_user_id: int | None) -> None:
     """Create notifications for any @mentioned users (case-insensitive match
-    on user.name). Doesn't notify the actor themselves."""
-    names = extract_mentions(raw_body)
+    on user.name). Doesn't notify the actor themselves. Reserved names are
+    silently dropped so they can't be hijacked by signups."""
+    names = [n for n in extract_mentions(raw_body) if n.lower() not in _RESERVED_MENTION_NAMES]
     if not names:
         return
     from sqlalchemy import func as _func
@@ -46,6 +54,10 @@ async def _notify_mentions(session, raw_body: str, thread_id: int, post_id: int 
     now = datetime.now(timezone.utc)
     for u in targets:
         if exclude_user_id and u.id == exclude_user_id:
+            continue
+        # Belt + braces: a user whose stored name happens to match a
+        # reserved label (legacy data, race) is also dropped here.
+        if u.name and u.name.lower() in _RESERVED_MENTION_NAMES:
             continue
         session.add(Notification(
             user_id=u.id,
@@ -69,23 +81,35 @@ RATE_LIMIT_REACTIONS_PER_HOUR = 120
 
 def _safe_referer(request: Request, fallback: str = "/forum") -> str:
     """Treat the Referer header as untrusted user input. Accept only a
-    same-origin path; anything else collapses to fallback. Used by
-    /forum/react which redirects back to wherever the user came from."""
+    same-origin non-admin path; anything else collapses to fallback.
+    Used by endpoints (e.g. /forum/react) that redirect back to wherever
+    the user came from.
+
+    /admin/* is rejected too — an attacker setting Referer to an admin
+    URL on a victim's reaction click would reflect that admin URL via
+    the 303 → /auth/login bounce, leaking the existence of a specific
+    admin path the user was probing.
+    """
     ref = request.headers.get("referer", "")
     if not ref:
         return fallback
-    # Relative path that doesn't look like a protocol-relative bypass
+    # Resolve to a same-origin path
+    target = None
     if ref.startswith("/") and not ref.startswith("//"):
-        return ref
-    # Absolute URL pointing at our own host
-    from urllib.parse import urlparse
-    parsed = urlparse(ref)
-    if parsed.scheme in ("http", "https") and parsed.netloc == request.url.netloc:
-        path = parsed.path or "/"
-        if parsed.query:
-            path += "?" + parsed.query
-        return path
-    return fallback
+        target = ref
+    else:
+        from urllib.parse import urlparse
+        parsed = urlparse(ref)
+        if parsed.scheme in ("http", "https") and parsed.netloc == request.url.netloc:
+            target = parsed.path or "/"
+            if parsed.query:
+                target += "?" + parsed.query
+    if target is None:
+        return fallback
+    # Strip admin paths to avoid leaking what the user was trying to reach
+    if target.startswith("/admin") or target.startswith("/auth/"):
+        return fallback
+    return target
 
 
 def require_admin_or_403(request: Request):
@@ -223,7 +247,9 @@ async def forum_new_submit(
     if _is_admin(request):
         author_name = DEVELOPER_LABEL
     elif user is not None:
-        author_name = (user.name or user.email.split("@")[0])[:64]
+        # Never fall back to the email local-part for the public byline
+        # — that would publish PII (even partial) in JSON-LD, RSS, etc.
+        author_name = (user.name or f"user{user.id}")[:64]
     else:
         author_name = author_name.strip()[:64]
     # Never let a non-admin masquerade as Developer (the label is a
@@ -254,7 +280,10 @@ async def forum_new_submit(
     if mod_id.strip().isdigit():
         candidate = int(mod_id)
         exists = await session.get(Mod, candidate)
-        if exists is not None:
+        # Only allow tagging the thread to a publicly-visible mod —
+        # threads tagged to a private mod would render a broken link
+        # for everyone except the admin who hid the mod.
+        if exists is not None and exists.public:
             parsed_mod_id = candidate
 
     now = datetime.now(timezone.utc)
@@ -385,7 +414,9 @@ async def forum_reply(
     if _is_admin(request):
         author_name = DEVELOPER_LABEL
     elif user is not None:
-        author_name = (user.name or user.email.split("@")[0])[:64]
+        # Never fall back to the email local-part for the public byline
+        # — that would publish PII (even partial) in JSON-LD, RSS, etc.
+        author_name = (user.name or f"user{user.id}")[:64]
     else:
         author_name = author_name.strip()[:64]
     if not _is_admin(request) and author_name.strip().lower() == DEVELOPER_LABEL.lower():
@@ -706,9 +737,15 @@ async def forum_post_delete(
     if post is None:
         raise HTTPException(404)
     is_admin = _is_admin(request)
-    is_owner_in_window = (
-        token == post.author_token
-        and (datetime.now(timezone.utc) - post.created_at) <= POST_WINDOW
+    user = await current_user(request, session)
+    # Ownership = cookie-token match OR (logged in AND user_id match).
+    # Mirrors _can_edit so a logged-in user who cleared mb_token can
+    # still delete their own post within the window — previously they
+    # were locked out because we only checked the token.
+    in_window = (datetime.now(timezone.utc) - post.created_at) <= POST_WINDOW
+    is_owner_in_window = in_window and (
+        (token is not None and token == post.author_token)
+        or (user is not None and post.author_user_id == user.id)
     )
     if not (is_admin or is_owner_in_window):
         raise HTTPException(403)

@@ -12,12 +12,28 @@ locked out by their own typo.
 from __future__ import annotations
 
 import time
-from collections import defaultdict
+from collections import OrderedDict
 from threading import Lock
 
-# IP → list[timestamp] of recent failed attempts
-_buckets: dict[str, list[float]] = defaultdict(list)
+# IP → list[timestamp] of recent failed attempts.
+# OrderedDict (move-to-end on access) + MAX_KEYS cap → bounded memory
+# even when an attacker hammers from many IPs / IPv6 sweeps. Without
+# the cap, _buckets would grow forever and eventually OOM the worker.
+MAX_KEYS = 10_000
+_buckets: "OrderedDict[str, list[float]]" = OrderedDict()
 _lock = Lock()
+
+
+def _trim(now: float, window_seconds: int) -> None:
+    """Drop fully-expired entries when the cap is reached — cheaper
+    than tracking expiry per key. Called under _lock."""
+    cutoff = now - window_seconds
+    dead = [k for k, ts in _buckets.items() if not ts or ts[-1] < cutoff]
+    for k in dead:
+        _buckets.pop(k, None)
+    # If still over cap, drop the oldest (LRU eviction).
+    while len(_buckets) > MAX_KEYS:
+        _buckets.popitem(last=False)
 
 
 def check_and_record(
@@ -31,7 +47,14 @@ def check_and_record(
     now = time.time()
     cutoff = now - window_seconds
     with _lock:
-        bucket = _buckets[key]
+        if len(_buckets) >= MAX_KEYS:
+            _trim(now, window_seconds)
+        bucket = _buckets.get(key)
+        if bucket is None:
+            bucket = []
+            _buckets[key] = bucket
+        else:
+            _buckets.move_to_end(key)
         bucket[:] = [t for t in bucket if t > cutoff]
         if len(bucket) >= max_attempts:
             return False
