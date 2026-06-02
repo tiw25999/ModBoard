@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Admin · Files · {{ mod.title or mod.name }} — ModBoard{% endblock %}
+{% block body %}
+
+<section class="admin-hero">
+  <div class="admin-hero-left">
+    <span class="eyebrow">File versions</span>
+    <h1>{{ mod.title or mod.name }}</h1>
+    <div class="admin-hero-status">{{ files|length }} version{{ "" if files|length == 1 else "s" }} · max {{ max_mb }} MB/file</div>
+  </div>
+  <div class="admin-hero-actions">
+    <a href="/admin/mods" class="btn">← Back to mods</a>
+    <a href="/mod/{{ mod.id }}" class="btn">View public page</a>
+  </div>
+</section>
+
+{% if request.query_params.get('error') == 'too_large' %}
+<div class="thread-empty" style="color:var(--danger,#c33)">Upload rejected — file exceeds {{ max_mb }} MB.</div>
+{% endif %}
+
+<section class="mods-add">
+  <form method="post" action="/admin/mods/{{ mod.id }}/files" enctype="multipart/form-data" class="mods-add-form">
+    <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+    <div class="mods-add-field">
+      <label for="version">Version</label>
+      <input class="input" id="version" type="text" name="version" placeholder="e.g. 1.0.2" maxlength="64" required>
+    </div>
+    <div class="mods-add-field" style="flex:1">
+      <label for="changelog">Changelog (optional)</label>
+      <input class="input" id="changelog" type="text" name="changelog" placeholder="What changed in this version">
+    </div>
+    <div class="mods-add-field">
+      <label for="upload">File</label>
+      <input class="input" id="upload" type="file" name="upload" required>
+    </div>
+    <button class="btn primary mods-add-btn" type="submit"><span>+ Upload version</span></button>
+  </form>
+</section>
+
+{% if files %}
+<div class="admin-mod-list">
+  {% for f in files %}
+  <article class="admin-mod-row">
+    <div class="admin-mod-info">
+      <h3 class="admin-mod-name">
+        {{ f.version }}
+        {% if f.is_current %}<span class="dash-game-pill">current</span>{% endif %}
+      </h3>
+      <div class="admin-mod-meta">
+        <span class="admin-mod-slug">{{ f.filename }}</span>
+        <span class="admin-mod-id">{{ (f.size_bytes / 1048576)|round(2) }} MB</span>
+        <span class="admin-mod-id">{{ f.download_count }} downloads</span>
+        <span class="admin-mod-id" title="sha256">{{ f.sha256[:12] }}…</span>
+      </div>
+      {% if f.changelog %}<div class="admin-mod-meta">{{ f.changelog }}</div>{% endif %}
+    </div>
+    <div class="admin-mod-actions">
+      <a href="/mod/{{ mod.id }}/download/{{ f.id }}" class="btn-row-link">Download</a>
+      {% if not f.is_current %}
+      <form method="post" action="/admin/mods/files/{{ f.id }}/set-current">
+        <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="btn-row-link">Make current</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/admin/mods/files/{{ f.id }}/delete"
+            onsubmit="return confirm('Delete version {{ f.version|e }}?');">
+        <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="btn-row-danger">Delete</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="thread-empty" style="margin-top:var(--s-5)">No files uploaded yet.</div>
+{% endif %}
+
+{% endblock %}

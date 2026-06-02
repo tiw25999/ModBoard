@@ -36,6 +36,37 @@
   </p>
 </section>
 
+<!-- Manual (non-Steam) mod -->
+<section class="mods-add">
+  <form method="post" action="/admin/mods/manual" class="mods-add-form" autocomplete="off">
+    <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+    <div class="mods-add-field">
+      <label for="m_name">Manual mod slug</label>
+      <input class="input" id="m_name" type="text" name="name"
+             placeholder="e.g. MyCustomMod" maxlength="64" required>
+    </div>
+    <div class="mods-add-field">
+      <label for="m_game">Game</label>
+      <input class="input" id="m_game" type="text" name="game_name"
+             placeholder="e.g. Minecraft" maxlength="256">
+    </div>
+    <div class="mods-add-field">
+      <label for="m_title">Title</label>
+      <input class="input" id="m_title" type="text" name="title"
+             placeholder="Display title" maxlength="256">
+    </div>
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" name="public" value="1" checked> Public
+    </label>
+    <button class="btn primary mods-add-btn" type="submit">
+      <span>+ Add manual mod</span>
+    </button>
+  </form>
+  <p class="mods-add-hint">
+    Self-hosted mod with no Steam Workshop page. You'll upload files on the next screen.
+  </p>
+</section>
+
 <!-- Mod cards instead of a dense table -->
 {% if mods %}
 <div class="admin-mod-list">
@@ -63,7 +94,12 @@
     <div class="admin-mod-actions">
       <a href="/mod/{{ m.id }}" class="btn-row-link">View</a>
       <a href="/admin/mods/{{ m.id }}/roadmap" class="btn-row-link">Roadmap</a>
+      {% if m.source == 'manual' %}
+      <a href="/admin/mods/{{ m.id }}/files" class="btn-row-link">Files</a>
+      {% endif %}
+      {% if m.workshop_url %}
       <a href="{{ m.workshop_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
+      {% endif %}
       <form method="post" action="/admin/mods/{{ m.id }}/delete"
             onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}?\n\nSnapshots, comments, discussions, and changelogs will be removed.');">
       <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">

@@ -2,13 +2,14 @@
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.db import get_db
 from app.models import (
     NEWS_KINDS,
@@ -20,10 +21,12 @@ from app.models import (
     ModChangelog,
     ModComment,
     ModDiscussion,
+    ModFile,
     ModSnapshot,
     NewsPost,
     RoadmapItem,
 )
+from app.services import mod_files as mf
 from app.services.api_key import mint_key
 from app.services.audit import log_event
 from app.services.poller import poll_once
@@ -330,6 +333,42 @@ async def add_mod(
     return RedirectResponse("/admin/mods", status_code=303)
 
 
+@router.post("/mods/manual")
+async def add_manual_mod(
+    request: Request,
+    name: str = Form(...),
+    game_name: str = Form(""),
+    title: str = Form(""),
+    description: str = Form(""),
+    public: str = Form(""),
+    session: AsyncSession = Depends(get_db),
+):
+    """Create a self-hosted, non-Steam mod. Id comes from
+    manual_mod_id_seq (small integers; never collide with Steam ids)."""
+    name = name.strip()[:64]
+    if not name:
+        return RedirectResponse("/admin/mods", status_code=303)
+    new_id = int((await session.execute(
+        text("SELECT nextval('manual_mod_id_seq')")
+    )).scalar())
+    mod = Mod(
+        id=new_id,
+        name=name,
+        title=title.strip()[:256] or None,
+        description=description.strip() or None,
+        game_name=game_name.strip()[:256] or None,
+        source="manual",
+        public=bool(public),
+        workshop_url=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(mod)
+    await log_event(session, "admin_action", request,
+                    detail=f"create manual mod id={new_id} name={name}")
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{new_id}/files", status_code=303)
+
+
 @router.post("/mods/{mod_id}/delete")
 async def delete_mod(mod_id: int, session: AsyncSession = Depends(get_db)):
     mod = await session.get(Mod, mod_id)
@@ -337,6 +376,113 @@ async def delete_mod(mod_id: int, session: AsyncSession = Depends(get_db)):
         await session.delete(mod)
         await session.commit()
     return RedirectResponse("/admin/mods", status_code=303)
+
+
+# ---------- Manual mod file versions --------------------------------------
+
+@router.get("/mods/{mod_id}/files", response_class=HTMLResponse)
+async def admin_mod_files(
+    request: Request,
+    mod_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    mod = await session.get(Mod, mod_id)
+    if mod is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    files = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id)
+        .order_by(ModFile.uploaded_at.desc())
+    )).scalars().all()
+    return templates.TemplateResponse(
+        request, "admin_mod_files.html",
+        {"mod": mod, "files": files, "max_mb": settings.max_upload_mb},
+    )
+
+
+@router.post("/mods/{mod_id}/files")
+async def admin_upload_file(
+    request: Request,
+    mod_id: int,
+    version: str = Form(...),
+    changelog: str = Form(""),
+    upload: UploadFile = Form(...),
+    session: AsyncSession = Depends(get_db),
+):
+    mod = await session.get(Mod, mod_id)
+    if mod is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    version = version.strip()[:64] or "unversioned"
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    try:
+        stored_path, size, sha = await mf.stream_save(
+            mod_id, upload.filename or "file", upload, max_bytes
+        )
+    except mf.UploadTooLarge:
+        return RedirectResponse(f"/admin/mods/{mod_id}/files?error=too_large", status_code=303)
+
+    # New upload becomes the current version; demote the old current.
+    old_current = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id, ModFile.is_current.is_(True))
+    )).scalars().all()
+    for f in old_current:
+        f.is_current = False
+
+    session.add(ModFile(
+        mod_id=mod_id,
+        version=version,
+        filename=(upload.filename or "file")[:255],
+        stored_path=stored_path,
+        size_bytes=size,
+        content_type=(upload.content_type or None),
+        sha256=sha,
+        changelog=changelog.strip() or None,
+        is_current=True,
+        uploaded_at=datetime.now(timezone.utc),
+    ))
+    await log_event(session, "admin_action", request,
+                    detail=f"upload file mod={mod_id} version={version} size={size}")
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{mod_id}/files", status_code=303)
+
+
+@router.post("/mods/files/{file_id}/set-current")
+async def admin_set_current_file(
+    file_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    f = await session.get(ModFile, file_id)
+    if f is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    others = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == f.mod_id, ModFile.is_current.is_(True))
+    )).scalars().all()
+    for o in others:
+        o.is_current = False
+    f.is_current = True
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{f.mod_id}/files", status_code=303)
+
+
+@router.post("/mods/files/{file_id}/delete")
+async def admin_delete_file(
+    request: Request,
+    file_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    f = await session.get(ModFile, file_id)
+    if f is None:
+        from fastapi import HTTPException
+        raise HTTPException(404)
+    mod_id = f.mod_id
+    mf.delete_file(f.stored_path)
+    await session.delete(f)
+    await log_event(session, "admin_action", request,
+                    detail=f"delete file id={file_id} mod={mod_id}")
+    await session.commit()
+    return RedirectResponse(f"/admin/mods/{mod_id}/files", status_code=303)
 
 
 # ---------- Roadmap management ---------------------------------------------
