@@ -18,9 +18,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # New columns on mods. server_default backfills existing rows so the
-    # NOT NULL constraints hold; drop the server_default afterwards for
-    # source so the ORM default ('steam') governs new inserts cleanly.
+    # New columns on mods. server_default backfills existing rows AND is
+    # kept permanently so the rolling-deploy window (old + new code run
+    # side by side for ~30s) stays safe: old code inserts a Mod without
+    # the `source`/counter columns, and the DB default fills them in.
+    # New code sets `source` explicitly via the ORM regardless.
     op.add_column('mods', sa.Column('source', sa.String(length=16),
                                     nullable=False, server_default='steam'))
     op.add_column('mods', sa.Column('game_name', sa.String(length=256), nullable=True))
@@ -28,9 +30,6 @@ def upgrade() -> None:
                                     nullable=False, server_default='0'))
     op.add_column('mods', sa.Column('download_count', sa.Integer(),
                                     nullable=False, server_default='0'))
-    op.alter_column('mods', 'source', server_default=None)
-    op.alter_column('mods', 'view_count', server_default=None)
-    op.alter_column('mods', 'download_count', server_default=None)
 
     # Sequence for manual-mod ids. STARTs at 1; Steam workshop ids are
     # always >= 10^9, so small sequence values never collide.

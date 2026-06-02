@@ -17,8 +17,12 @@ COPY . .
 # Drop root before runtime. Limits blast radius if the app gets RCE —
 # attacker lands as uid 10001 with no shell, no sudo, no writable
 # system dirs. Static fixed uid so volumes mounted by compose match.
+# Pre-create the uploaded-files dir owned by `app`: a fresh named volume
+# mounted here inherits this ownership, so uid 10001 can write uploads
+# (otherwise the volume is root-owned and every upload fails with EACCES).
 RUN useradd --system --uid 10001 --shell /usr/sbin/nologin app \
-    && chown -R app:app /app
+    && mkdir -p /data/mod_files \
+    && chown -R app:app /app /data
 USER app
 
 EXPOSE 8000
