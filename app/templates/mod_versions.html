@@ -13,20 +13,21 @@
   </div>
 
   {% if files %}
-  <div class="thread">
+  <div class="version-list">
     {% for f in files %}
-    <article class="comment">
-      <div class="body">
-        <div class="who">
-          <span class="author">
-            {{ f.version }}{% if f.is_current %} <span class="dash-game-pill">current</span>{% endif %}
-          </span>
-          <span class="when">{{ f.uploaded_at.strftime("%Y-%m-%d") }} · {{ (f.size_bytes / 1048576)|round(2) }} MB</span>
+    <article class="version-card {% if f.is_current %}is-current{% endif %}">
+      <div class="version-head">
+        <div class="version-id">
+          <span class="version-name">{{ f.version }}</span>
+          {% if f.is_current %}<span class="version-badge">current</span>{% endif %}
         </div>
-        {% if f.changelog %}<div class="text">{{ f.changelog }}</div>{% endif %}
-        <div style="margin-top:8px">
-          <a class="btn primary" href="/mod/{{ mod.id }}/download/{{ f.id }}"><span>Download</span><span class="arrow">↓</span></a>
-        </div>
+        <div class="version-meta">{{ f.uploaded_at.strftime("%Y-%m-%d") }} &middot; {{ (f.size_bytes / 1048576)|round(2) }} MB</div>
+      </div>
+      <div class="version-file">{{ f.filename }}</div>
+      {% if f.changelog %}<p class="version-changelog">{{ f.changelog }}</p>{% endif %}
+      <div class="version-actions">
+        <a class="btn primary" href="/mod/{{ mod.id }}/download/{{ f.id }}"><span>Download</span><span class="arrow">↓</span></a>
+        <span class="version-dls">{{ f.download_count }} download{{ "" if f.download_count == 1 else "s" }}</span>
       </div>
     </article>
     {% endfor %}

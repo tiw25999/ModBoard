@@ -2870,6 +2870,79 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   color: var(--amber);
 }
 
+/* ---- mod file versions (self-hosted mods) ---------------------------- */
+.version-list { display: grid; gap: var(--s-4); }
+
+.version-card {
+  padding: var(--s-5);
+  background: linear-gradient(180deg, var(--ink-1), #0b0d11);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.version-card.is-current { border-left: 2px solid var(--amber); }
+
+.version-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+.version-id { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
+.version-name {
+  font-family: var(--f-sans);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg-0);
+  letter-spacing: -0.01em;
+}
+.version-badge {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: var(--r-xs);
+  padding: 2px 8px;
+  background: rgba(255, 181, 71, 0.07);
+}
+.version-meta {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+}
+.version-file {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  margin-top: var(--s-2);
+  word-break: break-all;
+}
+.version-changelog {
+  color: var(--fg-1);
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: var(--s-3) 0 0;
+}
+.version-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  flex-wrap: wrap;
+}
+.version-dls {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--fg-3);
+}
+
+/* Manual-mod landing metrics: 2 columns (Downloads/Views) not 3. */
+.modlist .metrics.metrics-2 { grid-template-columns: repeat(2, minmax(74px, auto)); }
+
 .thread-empty {
   padding: var(--s-7);
   text-align: center;

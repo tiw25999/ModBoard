@@ -59,6 +59,19 @@
            omits the live counters for less-popular items, and the
            HTML scrape occasionally misses on layout changes — having
            three sources practically eliminates the "—" rows. #}
+        {% if row.mod.source == 'manual' %}
+        {# Self-hosted mods have no Steam stats — show our own counters. #}
+        <div class="metrics metrics-2">
+          <div class="metric">
+            <span class="v">{{ row.mod.download_count or 0 }}</span>
+            <span class="k">Downloads</span>
+          </div>
+          <div class="metric">
+            <span class="v">{{ row.mod.view_count or 0 }}</span>
+            <span class="k">Views</span>
+          </div>
+        </div>
+        {% else %}
         {% set s = row.snap %}
         <div class="metrics">
           <div class="metric">
@@ -74,6 +87,7 @@
             <span class="k">Comments</span>
           </div>
         </div>
+        {% endif %}
       </li>
     {% endfor %}
     </ul>
