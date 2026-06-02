@@ -142,12 +142,21 @@ MAX_REQUEST_BYTES = 256 * 1024  # 256KB is plenty for forum + admin forms
 
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
-    cl = request.headers.get("content-length")
-    if cl and cl.isdigit() and int(cl) > MAX_REQUEST_BYTES:
-        return JSONResponse(
-            {"detail": "request body too large"},
-            status_code=413,
-        )
+    # Upload routes legitimately exceed the form-size cap; they enforce
+    # their own per-file limit (MAX_UPLOAD_MB) by streaming. Anything else
+    # over 256KB is almost certainly abuse.
+    path = request.url.path
+    is_upload = request.method == "POST" and (
+        (path.startswith("/admin/mods/") and path.endswith("/files"))
+        or (path.startswith("/api/admin/mods/") and path.endswith("/files"))
+    )
+    if not is_upload:
+        cl = request.headers.get("content-length")
+        if cl and cl.isdigit() and int(cl) > MAX_REQUEST_BYTES:
+            return JSONResponse(
+                {"detail": "request body too large"},
+                status_code=413,
+            )
     return await call_next(request)
 
 
