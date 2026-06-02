@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Form, HTTPException, UploadFile
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -67,13 +67,33 @@ def _mod_dict(m: Mod) -> dict[str, Any]:
         "id": m.id,
         "name": m.name,
         "title": m.title,
+        "source": m.source,
+        "game_name": m.game_name,
         "workshop_url": m.workshop_url,
         "github_url": m.github_url,
         "thumbnail_url": m.thumbnail_url,
         "public": m.public,
         "app_id": m.app_id,
         "app_name": m.app_name,
+        "view_count": m.view_count,
+        "download_count": m.download_count,
         "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
+def _file_dict(f: ModFile) -> dict[str, Any]:
+    return {
+        "id": f.id,
+        "mod_id": f.mod_id,
+        "version": f.version,
+        "filename": f.filename,
+        "size_bytes": f.size_bytes,
+        "content_type": f.content_type,
+        "sha256": f.sha256,
+        "changelog": f.changelog,
+        "download_count": f.download_count,
+        "is_current": f.is_current,
+        "uploaded_at": f.uploaded_at.isoformat() if f.uploaded_at else None,
     }
 
 
@@ -194,6 +214,56 @@ async def bulk_create_mods(
     return {"results": out}
 
 
+@router.post("/mods/manual", status_code=201)
+async def create_manual_mod(
+    name: Annotated[str, Body(..., embed=True, min_length=1, max_length=64)],
+    title: Annotated[str | None, Body(embed=True)] = None,
+    description: Annotated[str | None, Body(embed=True)] = None,
+    game_name: Annotated[str | None, Body(embed=True)] = None,
+    github_url: Annotated[str | None, Body(embed=True)] = None,
+    public: Annotated[bool, Body(embed=True)] = True,
+    key: AdminApiKey = Depends(require_api_key),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Create a self-hosted, non-Steam mod. Id comes from
+    manual_mod_id_seq (small integers; never collide with Steam ids).
+    Upload files afterwards with POST /api/admin/mods/{id}/files."""
+    new_id = int((await session.execute(
+        text("SELECT nextval('manual_mod_id_seq')")
+    )).scalar())
+    mod = Mod(
+        id=new_id,
+        name=name.strip()[:64],
+        title=(title.strip()[:256] if title else None) or None,
+        description=(description.strip() if description else None) or None,
+        game_name=(game_name.strip()[:256] if game_name else None) or None,
+        github_url=github_url,
+        source="manual",
+        public=public,
+        workshop_url=None,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(mod)
+    await session.commit()
+    return _mod_dict(mod)
+
+
+@router.get("/mods/{mod_id}/files")
+async def list_mod_files(
+    mod_id: int,
+    key: AdminApiKey = Depends(require_api_key),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """List all uploaded file versions for a mod, newest first."""
+    if await session.get(Mod, mod_id) is None:
+        raise HTTPException(404, detail=f"mod {mod_id} not found")
+    rows = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id)
+        .order_by(ModFile.uploaded_at.desc())
+    )).scalars().all()
+    return {"count": len(rows), "files": [_file_dict(f) for f in rows]}
+
+
 @router.post("/mods/{mod_id}/files", status_code=201)
 async def api_upload_file(
     mod_id: int,
@@ -204,7 +274,8 @@ async def api_upload_file(
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Upload a new file version for a mod via bearer key. The mod must
-    already exist (create it via the admin UI first)."""
+    already exist — create it with POST /api/admin/mods/manual (or the
+    admin UI). The new upload becomes the current download."""
     mod = await session.get(Mod, mod_id)
     if mod is None:
         raise HTTPException(404, detail=f"mod {mod_id} not found")
@@ -233,8 +304,43 @@ async def api_upload_file(
     )
     session.add(row)
     await session.commit()
-    return {"id": row.id, "mod_id": mod_id, "version": version,
-            "size_bytes": size, "sha256": sha, "is_current": True}
+    return _file_dict(row)
+
+
+@router.post("/mods/files/{file_id}/set-current")
+async def api_set_current_file(
+    file_id: int,
+    key: AdminApiKey = Depends(require_api_key),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Mark a specific version as the current download for its mod."""
+    f = await session.get(ModFile, file_id)
+    if f is None:
+        raise HTTPException(404, detail=f"file {file_id} not found")
+    others = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == f.mod_id, ModFile.is_current.is_(True))
+    )).scalars().all()
+    for o in others:
+        o.is_current = False
+    f.is_current = True
+    await session.commit()
+    return _file_dict(f)
+
+
+@router.delete("/mods/files/{file_id}", status_code=204)
+async def api_delete_file(
+    file_id: int,
+    key: AdminApiKey = Depends(require_api_key),
+    session: AsyncSession = Depends(get_db),
+):
+    """Delete a file version (removes the stored file from disk too)."""
+    f = await session.get(ModFile, file_id)
+    if f is None:
+        raise HTTPException(404, detail=f"file {file_id} not found")
+    mf.delete_file(f.stored_path)
+    await session.delete(f)
+    await session.commit()
+    return None
 
 
 # ---------- poll -------------------------------------------------------

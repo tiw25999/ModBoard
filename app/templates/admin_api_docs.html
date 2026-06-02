@@ -74,7 +74,68 @@ Content-Type: application/json
 
     <h3>Delete a mod</h3>
     <pre>DELETE /api/admin/mods/{workshop_id}</pre>
-    <p>Cascades to snapshots, comments, changelogs, discussions, roadmap, subscriptions.</p>
+    <p>Cascades to snapshots, comments, changelogs, discussions, roadmap, subscriptions
+       — and, for manual mods, uploaded file versions (DB rows; on-disk files are left
+       to be reclaimed, delete versions explicitly first if you need them gone).</p>
+
+    <h2>Manual (non-Steam) mods &amp; file hosting</h2>
+    <p>For mods that don't live on Steam Workshop. ModBoard hosts the files itself,
+       with multiple versions per mod. Everything below is doable via API key — no UI needed.</p>
+
+    <h3>Create a manual mod</h3>
+    <pre>POST /api/admin/mods/manual
+Content-Type: application/json
+
+{
+  "name": "MyCustomMod",
+  "title": "My Custom Mod",
+  "game_name": "Minecraft",
+  "description": "What it does.",
+  "public": true
+}</pre>
+    <pre>curl -fsS https://workshopmods.org/api/admin/mods/manual \
+  -H "Authorization: Bearer $MODBOARD_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"MyCustomMod","game_name":"Minecraft"}'</pre>
+    <p>Returns the created mod, including its assigned <code>id</code> (a small integer from
+       a dedicated sequence — never collides with Steam workshop ids) and
+       <code>source: "manual"</code>. Use that <code>id</code> for the file calls below.
+       Optional: <code>title</code>, <code>description</code>, <code>game_name</code>,
+       <code>github_url</code>, <code>public</code> (default true).</p>
+
+    <h3>List a mod's file versions</h3>
+    <pre>GET  /api/admin/mods/{mod_id}/files</pre>
+    <p>Returns every version (newest first) with <code>id</code>, <code>version</code>,
+       <code>filename</code>, <code>size_bytes</code>, <code>sha256</code>,
+       <code>download_count</code>, and <code>is_current</code>.</p>
+
+    <h3>Upload a file version (multipart)</h3>
+    <pre>POST /api/admin/mods/{mod_id}/files
+Content-Type: multipart/form-data
+
+fields: version (required), upload (file, required), changelog (optional)</pre>
+    <pre>curl -fsS https://workshopmods.org/api/admin/mods/42/files \
+  -H "Authorization: Bearer $MODBOARD_KEY" \
+  -F "version=1.0.2" \
+  -F "changelog=Fixed the thing" \
+  -F "upload=@./MyCustomMod-1.0.2.zip"</pre>
+    <p>The new upload automatically becomes the <b>current</b> download (the previous
+       current is demoted). Files stream to disk; uploads over the server's
+       <code>MAX_UPLOAD_MB</code> cap (default 500 MB) return <code>413</code>.
+       Returns the created file record.</p>
+
+    <h3>Set a version as current</h3>
+    <pre>POST /api/admin/mods/files/{file_id}/set-current</pre>
+    <p>Points the main Download button at this version.</p>
+
+    <h3>Delete a file version</h3>
+    <pre>DELETE /api/admin/mods/files/{file_id}</pre>
+    <p>Removes the DB row <b>and</b> the stored file from disk. Returns <code>204</code>.</p>
+
+    <h3>Public download URLs (no key needed)</h3>
+    <pre>GET /mod/{mod_id}/download            # current version
+GET /mod/{mod_id}/download/{file_id}  # a specific version</pre>
+    <p>Served as an attachment. View + download counts are tracked per IP.</p>
 
     <h2>Steam poll trigger</h2>
     <pre>POST /api/admin/poll</pre>
@@ -135,6 +196,7 @@ DELETE /api/admin/roadmap/{item_id}</pre>
       <li><b>400</b> — bad input (wrong type, unknown field, enum violation)</li>
       <li><b>404</b> — target not found</li>
       <li><b>409</b> — already exists (mod with that workshop_id)</li>
+      <li><b>413</b> — uploaded file exceeds the server size cap</li>
     </ul>
 
     <h2>n8n / curl example: import a CSV of mods</h2>
