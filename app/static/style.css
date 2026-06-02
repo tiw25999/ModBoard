@@ -2612,8 +2612,12 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
 .detail-hero .thumb {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  /* Landscape hero — matches game store / workshop art (which is almost
+     always landscape) so headers fill cleanly instead of being cropped
+     to a square band. */
+  aspect-ratio: 16 / 9;
   object-fit: cover;
+  object-position: center;
   background: var(--ink-2);
   border-bottom: 1px solid var(--line);
 }
