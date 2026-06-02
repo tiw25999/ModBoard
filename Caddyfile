@@ -9,10 +9,11 @@
 }
 
 :8000 {
-	# Compress every response with Brotli when the client supports it
-	# (Chrome/FF/Safari/Edge all do) and gzip otherwise. Saves ~25%
-	# bandwidth on HTML/CSS/JS over gzip alone.
-	encode zstd br gzip
+	# Compress responses with zstd when the client supports it, gzip
+	# otherwise. (Brotli `br` is NOT in the official caddy:2-alpine image
+	# — it needs a custom xcaddy build — so requesting it crashes config
+	# adaptation. zstd + gzip are built in and cover every browser.)
+	encode zstd gzip
 
 	log {
 		output stdout
