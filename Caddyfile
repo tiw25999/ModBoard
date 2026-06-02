@@ -34,21 +34,15 @@
 		}
 	}
 
-	# Hard cap on inbound request body. The app's own middleware also
-	# rejects >256KB, but stopping it at the proxy means the app
-	# worker never wastes CPU parsing a 2GB form submission.
-	#
-	# Mod-file upload endpoints stream large files (self-hosted mods),
-	# so they get a high cap; everything else stays tight. The app's
-	# limit_request_size middleware re-caps non-upload routes at 256KB,
-	# so this only relaxes the proxy for the genuine upload paths.
-	@uploads path /api/admin/mods/* /admin/mods/*
-	@nonuploads not path /api/admin/mods/* /admin/mods/*
-	request_body @uploads {
+	# Inbound body cap, sized for the largest thing we accept: self-hosted
+	# mod-file uploads (see MAX_UPLOAD_MB, default 500MB). Non-upload routes
+	# are re-capped tight (256KB) by the app's own limit_request_size
+	# middleware, which rejects oversized bodies via the Content-Length
+	# header before reading them — so the worker still never parses a
+	# giant non-upload form. Kept as a single directive: Caddy rejects a
+	# duplicate `request_body`, which would fail `caddy reload`.
+	request_body {
 		max_size 600MB
-	}
-	request_body @nonuploads {
-		max_size 256KB
 	}
 
 	reverse_proxy app1:8000 app2:8000 {
