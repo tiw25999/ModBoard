@@ -2,7 +2,8 @@
 
 Bearer-token API for pushing data without redeploying. Mint a key in
 the admin UI, use it from `curl` / n8n / GitHub Actions to import
-mods, post news, manage roadmap items, or trigger Steam polls.
+mods, create self-hosted (non-Steam) mods and upload their files,
+post news, manage roadmap items, or trigger Steam polls.
 
 The same reference is rendered live (with the current host) at
 [`/admin/api-docs`](https://workshopmods.org/admin/api-docs) (admin
@@ -65,6 +66,7 @@ Errors follow:
 | 400 | Bad input (wrong type, unknown field, enum violation) |
 | 404 | Target not found |
 | 409 | Already exists (e.g. mod with that workshop_id) |
+| 413 | Uploaded file exceeds the server size cap (`MAX_UPLOAD_MB`) |
 
 ### `GET /api/admin/whoami`
 
@@ -149,6 +151,100 @@ and subscriptions.
 curl -fsS -X DELETE https://workshopmods.org/api/admin/mods/3724689682 \
   -H "Authorization: Bearer $MODBOARD_KEY"
 ```
+
+For manual mods this also cascades to uploaded file-version DB rows.
+Delete versions explicitly first (see below) if you want their stored
+files reclaimed from disk too.
+
+---
+
+### Manual (non-Steam) mods & file hosting
+
+For mods that don't live on Steam Workshop. ModBoard hosts the files
+itself, with multiple versions per mod. The whole workflow is scriptable
+via API key — no UI needed.
+
+#### `POST /api/admin/mods/manual`
+
+Create a self-hosted mod. The id is assigned from a dedicated sequence
+(small integers; never collides with Steam Workshop ids). Returns the
+created mod, including its `id` and `source: "manual"`.
+
+```bash
+curl -fsS https://workshopmods.org/api/admin/mods/manual \
+  -H "Authorization: Bearer $MODBOARD_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MyCustomMod", "game_name": "Minecraft", "title": "My Custom Mod"}'
+# → {"id": 1, "source": "manual", "game_name": "Minecraft", ...}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✓ | Short slug, ≤64 chars |
+| `title` | string | — | Display title, ≤256 chars |
+| `description` | string | — | Long description (BBCode/markdown-lite) |
+| `game_name` | string | — | Game grouping for the landing-page filter |
+| `github_url` | string | — | optional |
+| `public` | bool | — | default `true` |
+
+#### `GET /api/admin/mods/{mod_id}/files`
+
+List every uploaded version (newest first) with `id`, `version`,
+`filename`, `size_bytes`, `sha256`, `download_count`, `is_current`.
+
+```bash
+curl -fsS https://workshopmods.org/api/admin/mods/1/files \
+  -H "Authorization: Bearer $MODBOARD_KEY" | jq
+```
+
+#### `POST /api/admin/mods/{mod_id}/files`
+
+Upload a new file version (**multipart/form-data**, not JSON). The new
+upload automatically becomes the current download (the previous current
+is demoted). Streams to disk; over `MAX_UPLOAD_MB` (default 500 MB)
+returns `413`.
+
+```bash
+curl -fsS https://workshopmods.org/api/admin/mods/1/files \
+  -H "Authorization: Bearer $MODBOARD_KEY" \
+  -F "version=1.0.2" \
+  -F "changelog=Fixed the thing" \
+  -F "upload=@./MyCustomMod-1.0.2.zip"
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `version` | string | ✓ | e.g. `1.0.2`, ≤64 chars |
+| `upload` | file | ✓ | the mod file |
+| `changelog` | string | — | what changed in this version |
+
+#### `POST /api/admin/mods/files/{file_id}/set-current`
+
+Point the main Download button at a specific version.
+
+```bash
+curl -fsS -X POST https://workshopmods.org/api/admin/mods/files/7/set-current \
+  -H "Authorization: Bearer $MODBOARD_KEY"
+```
+
+#### `DELETE /api/admin/mods/files/{file_id}`
+
+Delete a version — removes the DB row **and** the stored file from disk.
+Returns `204`.
+
+```bash
+curl -fsS -X DELETE https://workshopmods.org/api/admin/mods/files/7 \
+  -H "Authorization: Bearer $MODBOARD_KEY"
+```
+
+#### Public download URLs (no key needed)
+
+```
+GET /mod/{mod_id}/download            # current version
+GET /mod/{mod_id}/download/{file_id}  # a specific version
+```
+
+Served as an attachment. View + download counts are tracked per IP.
 
 ---
 
@@ -265,6 +361,31 @@ curl -fsS https://workshopmods.org/api/admin/mods/bulk \
 # Trigger poll so the new mods get stats populated
 curl -fsS -X POST https://workshopmods.org/api/admin/poll \
   -H "Authorization: Bearer $KEY"
+```
+
+### Publish a self-hosted (non-Steam) mod
+
+Create the mod, capture its assigned id, then upload the file.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+KEY="$MODBOARD_KEY"
+
+# 1. Create the manual mod, grab its id
+id=$(curl -fsS https://workshopmods.org/api/admin/mods/manual \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  -d '{"name":"MyCustomMod","game_name":"Minecraft","title":"My Custom Mod"}' \
+  | jq -r '.id')
+
+# 2. Upload the first version (becomes the current download)
+curl -fsS "https://workshopmods.org/api/admin/mods/$id/files" \
+  -H "Authorization: Bearer $KEY" \
+  -F "version=1.0.0" \
+  -F "changelog=Initial release" \
+  -F "upload=@./MyCustomMod-1.0.0.zip" | jq
+
+# Public page is now live at /mod/$id with a Download button.
 ```
 
 ### GitHub Actions: daily mod-list sync
