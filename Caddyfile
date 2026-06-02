@@ -37,7 +37,17 @@
 	# Hard cap on inbound request body. The app's own middleware also
 	# rejects >256KB, but stopping it at the proxy means the app
 	# worker never wastes CPU parsing a 2GB form submission.
-	request_body {
+	#
+	# Mod-file upload endpoints stream large files (self-hosted mods),
+	# so they get a high cap; everything else stays tight. The app's
+	# limit_request_size middleware re-caps non-upload routes at 256KB,
+	# so this only relaxes the proxy for the genuine upload paths.
+	@uploads path /api/admin/mods/* /admin/mods/*
+	@nonuploads not path /api/admin/mods/* /admin/mods/*
+	request_body @uploads {
+		max_size 600MB
+	}
+	request_body @nonuploads {
 		max_size 256KB
 	}
 
