@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     steam_creator_id: str
     poll_interval_minutes: int = 30
 
+    # Where uploaded mod files live (shared Docker volume in prod).
+    mod_files_dir: str = "/data/mod_files"
+    # Hard cap per uploaded file. 500 MB default; tune later.
+    max_upload_mb: int = 500
+
     # Optional Steam Web API key. With a key, GetPublishedFileDetails
     # (and the newer IPublishedFileService.GetDetails endpoint we now
     # use) consistently returns engagement counters that the
