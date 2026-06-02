@@ -14,19 +14,22 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, UploadFile
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db import get_db
 from app.models import (
     NEWS_KINDS,
     ROADMAP_STATUSES,
     AdminApiKey,
     Mod,
+    ModFile,
     NewsPost,
     RoadmapItem,
 )
+from app.services import mod_files as mf
 from app.services.api_key import require_api_key
 from app.services.poller import poll_once
 from app.services.textfmt import render
@@ -189,6 +192,49 @@ async def bulk_create_mods(
         out.append({"workshop_id": wid, "status": "created"})
     await session.commit()
     return {"results": out}
+
+
+@router.post("/mods/{mod_id}/files", status_code=201)
+async def api_upload_file(
+    mod_id: int,
+    version: str = Form(...),
+    upload: UploadFile = Form(...),
+    changelog: str = Form(""),
+    key: AdminApiKey = Depends(require_api_key),
+    session: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Upload a new file version for a mod via bearer key. The mod must
+    already exist (create it via the admin UI first)."""
+    mod = await session.get(Mod, mod_id)
+    if mod is None:
+        raise HTTPException(404, detail=f"mod {mod_id} not found")
+    version = version.strip()[:64] or "unversioned"
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    try:
+        stored_path, size, sha = await mf.stream_save(
+            mod_id, upload.filename or "file", upload, max_bytes
+        )
+    except mf.UploadTooLarge:
+        raise HTTPException(413, detail=f"file exceeds {settings.max_upload_mb} MB")
+
+    old_current = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id, ModFile.is_current.is_(True))
+    )).scalars().all()
+    for f in old_current:
+        f.is_current = False
+
+    row = ModFile(
+        mod_id=mod_id, version=version,
+        filename=(upload.filename or "file")[:255],
+        stored_path=stored_path, size_bytes=size,
+        content_type=(upload.content_type or None),
+        sha256=sha, changelog=changelog.strip() or None,
+        is_current=True, uploaded_at=datetime.now(timezone.utc),
+    )
+    session.add(row)
+    await session.commit()
+    return {"id": row.id, "mod_id": mod_id, "version": version,
+            "size_bytes": size, "sha256": sha, "is_current": True}
 
 
 # ---------- poll -------------------------------------------------------
