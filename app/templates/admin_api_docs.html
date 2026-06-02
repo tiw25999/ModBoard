@@ -69,8 +69,10 @@ Content-Type: application/json
 Content-Type: application/json
 
 {"title": "New title", "public": false}</pre>
-    <p>Allowed fields: <code>name</code>, <code>title</code>, <code>workshop_url</code>,
-       <code>github_url</code>, <code>thumbnail_url</code>, <code>public</code>.</p>
+    <p>Allowed fields: <code>name</code>, <code>title</code>, <code>description</code>,
+       <code>game_name</code>, <code>workshop_url</code>, <code>github_url</code>,
+       <code>thumbnail_url</code>, <code>public</code>.
+       (<code>description</code> + <code>game_name</code> are mainly for editing manual mods after creation.)</p>
 
     <h3>Delete a mod</h3>
     <pre>DELETE /api/admin/mods/{workshop_id}</pre>

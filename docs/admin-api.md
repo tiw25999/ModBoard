@@ -133,7 +133,8 @@ curl -fsS https://workshopmods.org/api/admin/mods/bulk \
 #### `PATCH /api/admin/mods/{workshop_id}`
 
 Partial update. Allowed fields:
-`name`, `title`, `workshop_url`, `github_url`, `thumbnail_url`, `public`.
+`name`, `title`, `description`, `game_name`, `workshop_url`, `github_url`, `thumbnail_url`, `public`.
+(`description` + `game_name` are mainly for editing manual/self-hosted mods after creation.)
 
 ```bash
 curl -fsS -X PATCH https://workshopmods.org/api/admin/mods/3724689682 \

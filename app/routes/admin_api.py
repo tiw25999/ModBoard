@@ -150,12 +150,13 @@ async def update_mod(
     key: AdminApiKey = Depends(require_api_key),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Partial update. Allowed fields: name, title, workshop_url,
-    github_url, thumbnail_url, public."""
+    """Partial update. Allowed fields: name, title, description,
+    game_name, workshop_url, github_url, thumbnail_url, public."""
     mod = await session.get(Mod, mod_id)
     if mod is None:
         raise HTTPException(404, detail=f"mod {mod_id} not found")
-    allowed = {"name", "title", "workshop_url", "github_url", "thumbnail_url", "public"}
+    allowed = {"name", "title", "description", "game_name",
+               "workshop_url", "github_url", "thumbnail_url", "public"}
     extra = set(body) - allowed
     if extra:
         raise HTTPException(400, detail=f"unknown fields: {sorted(extra)}")
