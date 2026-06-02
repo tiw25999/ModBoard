@@ -31,85 +31,110 @@
       <div class="thumb" style="display:grid;place-items:center;font-family:var(--f-mono);color:var(--fg-3);font-size:11px;letter-spacing:.2em">NO IMAGE</div>
     {% endif %}
     <div class="actions">
-      <form method="post" action="/mod/{{ mod.id }}/subscribe" style="margin:0">
-      <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
-        <button type="submit" class="btn {% if is_subscribed %}btn-following{% else %}primary{% endif %}">
-          {% if is_subscribed %}
-            <span>✓ Following</span><span class="arrow">{{ sub_count }}</span>
-          {% else %}
-            <span>+ Follow mod</span><span class="arrow">{{ sub_count }}</span>
-          {% endif %}
-        </button>
-      </form>
-      <a class="btn" href="{{ mod.workshop_url }}" target="_blank" rel="noopener">
-        <span>Open on Steam</span><span class="arrow">↗</span>
-      </a>
-      {% if mod.github_url %}
-      <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
-        <span>Source</span><span class="arrow">↗</span>
-      </a>
+      {% if mod.source == 'manual' %}
+        {% if current_file %}
+        <a class="btn primary" href="/mod/{{ mod.id }}/download">
+          <span>Download {{ current_file.version }}</span><span class="arrow">↓</span>
+        </a>
+        {% else %}
+        <span class="btn" style="opacity:.6">No file yet</span>
+        {% endif %}
+        <a class="btn" href="/mod/{{ mod.id }}/versions"><span>All versions</span><span class="arrow">→</span></a>
+        {% if mod.github_url %}
+        <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
+          <span>Source</span><span class="arrow">↗</span>
+        </a>
+        {% endif %}
+      {% else %}
+        <form method="post" action="/mod/{{ mod.id }}/subscribe" style="margin:0">
+        <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+          <button type="submit" class="btn {% if is_subscribed %}btn-following{% else %}primary{% endif %}">
+            {% if is_subscribed %}
+              <span>✓ Following</span><span class="arrow">{{ sub_count }}</span>
+            {% else %}
+              <span>+ Follow mod</span><span class="arrow">{{ sub_count }}</span>
+            {% endif %}
+          </button>
+        </form>
+        <a class="btn" href="{{ mod.workshop_url }}" target="_blank" rel="noopener">
+          <span>Open on Steam</span><span class="arrow">↗</span>
+        </a>
+        {% if mod.github_url %}
+        <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
+          <span>Source</span><span class="arrow">↗</span>
+        </a>
+        {% endif %}
       {% endif %}
     </div>
   </aside>
 
   <div class="detail-body">
+    {% if mod.source == 'manual' %}
+    <div class="kpi-grid">
+      <div class="kpi">
+        <span class="k">Downloads</span>
+        <span class="v">{{ mod.download_count or 0 }}</span>
+        <span class="sub">total</span>
+      </div>
+      <div class="kpi">
+        <span class="k">Views</span>
+        <span class="v">{{ mod.view_count or 0 }}</span>
+        <span class="sub">page views</span>
+      </div>
+      <div class="kpi">
+        <span class="k">Versions</span>
+        <span class="v">{{ counts.files or 0 }}</span>
+        <span class="sub">uploaded</span>
+      </div>
+      {% if current_file %}
+      <div class="kpi">
+        <span class="k">Latest</span>
+        <span class="v">{{ current_file.version }}</span>
+        <span class="sub">{{ (current_file.size_bytes / 1048576)|round(1) }} MB</span>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if description_html %}
+    <section class="prose-section">
+      <div class="section-head">
+        <span class="eyebrow">About</span>
+        <span class="section-meta">mod description</span>
+      </div>
+      <div class="prose">{{ description_html|safe }}</div>
+    </section>
+    {% endif %}
+
+    {% else %}
+    {# ---- Steam mod body (unchanged) ---- #}
     {% if snap %}
-    {# Fallback chain for each KPI — see mod_list.html for rationale. #}
     {% set subs   = snap.subscribers_display or snap.subscriptions or snap.lifetime_subs or 0 %}
     {% set favs   = snap.favorites_display or snap.favorited or snap.lifetime_favorited or 0 %}
     {% set vis    = snap.visitors_display or snap.views or 0 %}
     {% set comms  = snap.num_comments_public or snap.comments_count or 0 %}
     <div class="kpi-grid">
-      <div class="kpi">
-        <span class="k">Subscribers</span>
-        <span class="v">{{ subs }}</span>
-        <span class="sub">currently active</span>
-      </div>
-      <div class="kpi">
-        <span class="k">Visitors</span>
-        <span class="v">{{ vis }}</span>
-        <span class="sub">unique lifetime</span>
-      </div>
-      <div class="kpi">
-        <span class="k">Favorites</span>
-        <span class="v">{{ favs }}</span>
-        <span class="sub">starred</span>
-      </div>
-      <div class="kpi">
-        <span class="k">Comments</span>
-        <span class="v">{{ comms }}</span>
-        <span class="sub">on workshop</span>
-      </div>
+      <div class="kpi"><span class="k">Subscribers</span><span class="v">{{ subs }}</span><span class="sub">currently active</span></div>
+      <div class="kpi"><span class="k">Visitors</span><span class="v">{{ vis }}</span><span class="sub">unique lifetime</span></div>
+      <div class="kpi"><span class="k">Favorites</span><span class="v">{{ favs }}</span><span class="sub">starred</span></div>
+      <div class="kpi"><span class="k">Comments</span><span class="v">{{ comms }}</span><span class="sub">on workshop</span></div>
     </div>
 
     {% if snap.votes_up is not none or snap.votes_down is not none %}
-    {# Steam vote_data — only renders when the API returned it
-       (modern IPublishedFileService endpoint only). #}
     {% set vu = snap.votes_up or 0 %}
     {% set vd = snap.votes_down or 0 %}
     {% set vtotal = vu + vd %}
     <div class="vote-bar" style="display:flex;gap:var(--s-3);align-items:center;margin:var(--s-4) 0;font-size:13px;color:var(--fg-2)">
       <span title="thumbs up">👍 <b style="color:var(--fg-0)">{{ vu }}</b></span>
       <span title="thumbs down">👎 <b style="color:var(--fg-0)">{{ vd }}</b></span>
-      {% if snap.vote_score is not none %}
-      <span title="Steam relevance score (0-1)">score <b style="color:var(--fg-0)">{{ "%.2f"|format(snap.vote_score) }}</b></span>
-      {% endif %}
-      {% if vtotal %}
-      <span>· {{ (100 * vu / vtotal)|round|int }}% positive</span>
-      {% endif %}
+      {% if snap.vote_score is not none %}<span title="Steam relevance score (0-1)">score <b style="color:var(--fg-0)">{{ "%.2f"|format(snap.vote_score) }}</b></span>{% endif %}
+      {% if vtotal %}<span>· {{ (100 * vu / vtotal)|round|int }}% positive</span>{% endif %}
     </div>
     {% endif %}
 
     <div class="detail-meta">
-      <span>Last updated on Steam ·
-        <b>{{ snap.last_updated.strftime("%Y-%m-%d") if snap.last_updated else "—" }}</b>
-      </span>
-      {% if snap.captured_at %}
-      <span>Captured · <b>{{ snap.captured_at.strftime("%Y-%m-%d %H:%M") }}</b></span>
-      {% endif %}
-      {% if snap.followers is not none and snap.followers %}
-      <span>Followers · <b>{{ snap.followers }}</b></span>
-      {% endif %}
+      <span>Last updated on Steam · <b>{{ snap.last_updated.strftime("%Y-%m-%d") if snap.last_updated else "—" }}</b></span>
+      {% if snap.captured_at %}<span>Captured · <b>{{ snap.captured_at.strftime("%Y-%m-%d %H:%M") }}</b></span>{% endif %}
+      {% if snap.followers is not none and snap.followers %}<span>Followers · <b>{{ snap.followers }}</b></span>{% endif %}
     </div>
     {% else %}
     <div class="thread-empty" style="margin-bottom:var(--s-6)">No snapshot recorded yet — waiting on first poll</div>
@@ -128,34 +153,21 @@
     <section>
       <div class="section-head">
         <span class="eyebrow">Latest comments</span>
-        <a class="section-meta section-link" href="/mod/{{ mod.id }}/comments">
-          View all {{ counts.comments }} →
-        </a>
+        <a class="section-meta section-link" href="/mod/{{ mod.id }}/comments">View all {{ counts.comments }} →</a>
       </div>
-
       {% if recent_comments %}
       <div class="thread">
         {% for c in recent_comments %}
         <article class="comment">
           <div class="avatar {% if not c.author_avatar_url %}placeholder{% endif %}">
-            {% if c.author_avatar_url %}
-              <img src="{{ c.author_avatar_url }}" alt="" loading="lazy">
-            {% else %}
-              {{ (c.author_name or "?")[0]|upper }}
-            {% endif %}
+            {% if c.author_avatar_url %}<img src="{{ c.author_avatar_url }}" alt="" loading="lazy">{% else %}{{ (c.author_name or "?")[0]|upper }}{% endif %}
           </div>
           <div class="body">
             <div class="who">
               <span class="author">
-                {% if c.author_profile_url %}
-                  <a href="{{ c.author_profile_url|safe_url }}" target="_blank" rel="noopener">{{ c.author_name or "anonymous" }}</a>
-                {% else %}
-                  {{ c.author_name or "anonymous" }}
-                {% endif %}
+                {% if c.author_profile_url %}<a href="{{ c.author_profile_url|safe_url }}" target="_blank" rel="noopener">{{ c.author_name or "anonymous" }}</a>{% else %}{{ c.author_name or "anonymous" }}{% endif %}
               </span>
-              <span class="when">
-                {% if c.posted_at %}{{ c.posted_at.strftime("%Y-%m-%d · %H:%M UTC") }}{% endif %}
-              </span>
+              <span class="when">{% if c.posted_at %}{{ c.posted_at.strftime("%Y-%m-%d · %H:%M UTC") }}{% endif %}</span>
             </div>
             <div class="text">{{ c.body_html|safe }}</div>
           </div>
@@ -166,6 +178,7 @@
       <div class="thread-empty">No comments scraped yet</div>
       {% endif %}
     </section>
+    {% endif %}
   </div>
 </div>
 

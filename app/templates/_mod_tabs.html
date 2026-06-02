@@ -3,6 +3,12 @@
   <a href="/mod/{{ mod.id }}" class="mod-tab {% if active == 'overview' %}is-active{% endif %}">
     <span class="lbl">Overview</span>
   </a>
+  {% if mod.source == 'manual' %}
+  <a href="/mod/{{ mod.id }}/versions" class="mod-tab {% if active == 'versions' %}is-active{% endif %}">
+    <span class="lbl">Versions</span>
+    <span class="count">{{ counts.files or 0 }}</span>
+  </a>
+  {% else %}
   <a href="/mod/{{ mod.id }}/comments" class="mod-tab {% if active == 'comments' %}is-active{% endif %}">
     <span class="lbl">Comments</span>
     <span class="count">{{ counts.comments }}</span>
@@ -11,10 +17,12 @@
     <span class="lbl">Discussions</span>
     <span class="count">{{ counts.discussions }}</span>
   </a>
+  {% endif %}
   <a href="/mod/{{ mod.id }}/roadmap" class="mod-tab {% if active == 'roadmap' %}is-active{% endif %}">
     <span class="lbl">Roadmap</span>
     <span class="count">{{ counts.roadmap or 0 }}</span>
   </a>
+  {% if mod.source != 'manual' %}
   <a href="/mod/{{ mod.id }}/changelog" class="mod-tab {% if active == 'changelog' %}is-active{% endif %}">
     <span class="lbl">Changelog</span>
     <span class="count">{{ counts.changelogs }}</span>
@@ -22,6 +30,7 @@
   <a href="/mod/{{ mod.id }}/stats" class="mod-tab {% if active == 'stats' %}is-active{% endif %}">
     <span class="lbl">Stats</span>
   </a>
+  {% endif %}
 </nav>
 {%- endmacro %}
 
@@ -29,18 +38,24 @@
 <a href="/" class="back-link">← all mods</a>
 <section class="page-head">
   <div>
-    <span class="eyebrow">{{ mod.app_name or "Workshop" }}</span>
+    <span class="eyebrow">{{ mod.app_name or mod.game_name or "Workshop" }}</span>
     <h1>{{ mod.title or mod.name }}</h1>
     <div class="detail-id" style="margin-top:10px">
       <span class="pill">{{ mod.name }}</span>
+      {% if mod.source != 'manual' %}
       <span style="margin:0 8px">·</span>
       <span>workshop id <b style="color:var(--fg-0)">{{ mod.id }}</b></span>
+      {% endif %}
     </div>
   </div>
   <div class="meta">
+    {% if mod.source == 'manual' %}
+    <span style="color:var(--fg-2)">{{ mod.game_name or "Self-hosted" }}</span>
+    {% else %}
     <a href="{{ mod.workshop_url }}" target="_blank" rel="noopener" style="color:var(--amber)">
       Open on Steam ↗
     </a>
+    {% endif %}
   </div>
 </section>
 {%- endmacro %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_mod_tabs.html" import mod_tabs, mod_pageheader %}
+{% block title %}Versions · {{ mod.title or mod.name }} — ModBoard{% endblock %}
+{% block body %}
+
+{{ mod_pageheader(mod) }}
+{{ mod_tabs(mod, counts, 'versions') }}
+
+<section class="prose-section">
+  <div class="section-head">
+    <span class="eyebrow">Versions</span>
+    <span class="section-meta">{{ files|length }} release{{ "" if files|length == 1 else "s" }}</span>
+  </div>
+
+  {% if files %}
+  <div class="thread">
+    {% for f in files %}
+    <article class="comment">
+      <div class="body">
+        <div class="who">
+          <span class="author">
+            {{ f.version }}{% if f.is_current %} <span class="dash-game-pill">current</span>{% endif %}
+          </span>
+          <span class="when">{{ f.uploaded_at.strftime("%Y-%m-%d") }} · {{ (f.size_bytes / 1048576)|round(2) }} MB</span>
+        </div>
+        {% if f.changelog %}<div class="text">{{ f.changelog }}</div>{% endif %}
+        <div style="margin-top:8px">
+          <a class="btn primary" href="/mod/{{ mod.id }}/download/{{ f.id }}"><span>Download</span><span class="arrow">↓</span></a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="thread-empty">No versions uploaded yet.</div>
+  {% endif %}
+</section>
+
+{% endblock %}

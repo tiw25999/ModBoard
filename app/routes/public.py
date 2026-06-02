@@ -2,7 +2,7 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,12 +17,16 @@ from app.models import (
     ModChangelog,
     ModComment,
     ModDiscussion,
+    ModFile,
     ModSnapshot,
     ModSubscription,
     NewsPost,
     RoadmapItem,
     User,
 )
+from app.services import mod_files as mf
+from app.services.cache import mark_seen
+from app.services.ratelimit import client_ip
 from app.services.session import current_user
 from app.services.bbcode import steam_bbcode_to_html
 
@@ -65,6 +69,13 @@ async def _require_mod(session: AsyncSession, mod_id: int) -> Mod:
     return mod
 
 
+async def _current_file(session: AsyncSession, mod_id: int) -> ModFile | None:
+    return (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id, ModFile.is_current.is_(True))
+        .limit(1)
+    )).scalar_one_or_none()
+
+
 async def _counts(session: AsyncSession, mod_id: int) -> dict[str, int]:
     """Lightweight counts for nav badges on the detail page."""
     from sqlalchemy import func
@@ -78,11 +89,16 @@ async def _counts(session: AsyncSession, mod_id: int) -> dict[str, int]:
         "changelogs": await _n(ModChangelog),
         "discussions": await _n(ModDiscussion),
         "roadmap": await _n(RoadmapItem),
+        "files": await _n(ModFile),
     }
 
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request, session: AsyncSession = Depends(get_db)):
+async def index(
+    request: Request,
+    game: str = Query(default="", max_length=256),
+    session: AsyncSession = Depends(get_db),
+):
     mods = (
         await session.execute(
             select(Mod)
@@ -93,13 +109,30 @@ async def index(request: Request, session: AsyncSession = Depends(get_db)):
     # One bulk query for snapshots instead of N+1 — page load on a 100-mod
     # homepage drops from ~100 round trips to 2 (mods + snapshots).
     snaps = await _latest_snapshots_by_mod(session, [m.id for m in mods])
+
+    def _bucket(m: Mod) -> str:
+        # Steam mods group by app_name; manual mods by game_name.
+        return (m.app_name if m.source != "manual" else m.game_name) or "Unknown game"
+
+    # Full list of game names for the filter chips (before filtering).
+    all_games = sorted({_bucket(m) for m in mods})
+
+    # Group by parent app/game. Mods whose app_name hasn't been resolved yet
+    # land under "Unknown" so they remain visible.
+    game = game.strip()
     games: "OrderedDict[str, list[dict]]" = OrderedDict()
+    shown = 0
     for m in mods:
-        bucket = m.app_name or "Unknown game"
+        bucket = _bucket(m)
+        if game and bucket != game:
+            continue
         games.setdefault(bucket, []).append({"mod": m, "snap": snaps.get(m.id)})
+        shown += 1
+
     return templates.TemplateResponse(
         request, "mod_list.html",
-        {"games": games, "total_mods": len(mods)},
+        {"games": games, "total_mods": shown,
+         "all_games": all_games, "active_game": game},
     )
 
 
@@ -108,6 +141,11 @@ async def mod_detail(
     request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
 ):
     mod = await _require_mod(session, mod_id)
+    # Manual mods track their own page views (Steam mods use Steam visitor data).
+    if mod.source == "manual":
+        if mark_seen(f"view:{mod_id}:{client_ip(request)}", 86400):
+            mod.view_count = (mod.view_count or 0) + 1
+            await session.commit()
     snap = await _latest_snapshot(session, mod_id)
     recent_comments = (
         await session.execute(
@@ -133,6 +171,8 @@ async def mod_detail(
         select(func.count()).select_from(ModSubscription).where(ModSubscription.mod_id == mod_id)
     )).scalar() or 0)
 
+    current_file = await _current_file(session, mod_id) if mod.source == "manual" else None
+
     return templates.TemplateResponse(
         request, "mod_detail.html",
         {
@@ -143,7 +183,71 @@ async def mod_detail(
             "description_html": steam_bbcode_to_html(mod.description),
             "is_subscribed": is_subscribed,
             "sub_count": sub_count,
+            "current_file": current_file,
         },
+    )
+
+
+@router.get("/mod/{mod_id}/download")
+async def mod_download_current(
+    request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
+):
+    mod = await _require_mod(session, mod_id)
+    f = await _current_file(session, mod_id)
+    if f is None:
+        raise HTTPException(404, detail="no file available")
+    return await _serve_file(request, session, mod, f)
+
+
+@router.get("/mod/{mod_id}/download/{file_id}")
+async def mod_download_version(
+    request: Request, mod_id: int, file_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    mod = await _require_mod(session, mod_id)
+    f = await session.get(ModFile, file_id)
+    if f is None or f.mod_id != mod_id:
+        raise HTTPException(404)
+    return await _serve_file(request, session, mod, f)
+
+
+async def _serve_file(request: Request, session: AsyncSession, mod: Mod, f: ModFile):
+    try:
+        path = mf.resolve_download_path(f.stored_path)
+    except ValueError:
+        raise HTTPException(404)
+    if not path.exists():
+        raise HTTPException(404, detail="file missing from storage")
+
+    # Count once per IP+file per 24h. Best-effort; never block the download.
+    ip = client_ip(request)
+    if mark_seen(f"dl:{f.id}:{ip}", 86400):
+        f.download_count = (f.download_count or 0) + 1
+        mod.download_count = (mod.download_count or 0) + 1
+        await session.commit()
+
+    # Sanitize filename for the header (strip quotes/newlines).
+    safe_name = "".join(c for c in f.filename if c.isprintable() and c not in '"\r\n') or "download"
+    return FileResponse(
+        path,
+        media_type=f.content_type or "application/octet-stream",
+        filename=safe_name,  # FileResponse emits Content-Disposition: attachment
+    )
+
+
+@router.get("/mod/{mod_id}/versions", response_class=HTMLResponse)
+async def mod_versions(
+    request: Request, mod_id: int, session: AsyncSession = Depends(get_db)
+):
+    mod = await _require_mod(session, mod_id)
+    files = (await session.execute(
+        select(ModFile).where(ModFile.mod_id == mod_id)
+        .order_by(ModFile.uploaded_at.desc())
+    )).scalars().all()
+    counts = await _counts(session, mod_id)
+    return templates.TemplateResponse(
+        request, "mod_versions.html",
+        {"mod": mod, "files": files, "counts": counts, "active_tab": "versions"},
     )
 
 
