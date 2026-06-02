@@ -19,6 +19,15 @@ class Mod(Base):
     public: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
+    # Discriminates Steam-tracked mods from self-hosted manual entries.
+    # Existing rows backfill to 'steam' in the migration.
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="steam")
+    # Game grouping for manual mods (Steam mods use app_name instead).
+    game_name: Mapped[str | None] = mapped_column(String(256))
+    # Engagement counters for manual mods (Steam mods use snapshot data).
+    view_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     # Parent Steam app the mod belongs to — populated from the API.
     # Both null until the first poll sees the mod.
     app_id: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -34,6 +43,9 @@ class Mod(Base):
         back_populates="mod", cascade="all, delete-orphan"
     )
     discussions: Mapped[list["ModDiscussion"]] = relationship(
+        back_populates="mod", cascade="all, delete-orphan"
+    )
+    files: Mapped[list["ModFile"]] = relationship(
         back_populates="mod", cascade="all, delete-orphan"
     )
 
@@ -135,3 +147,24 @@ class ModDiscussion(Base):
     scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     mod: Mapped[Mod] = relationship(back_populates="discussions")
+
+
+class ModFile(Base):
+    __tablename__ = "mod_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    mod_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("mods.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[str] = mapped_column(String(64), nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_path: Mapped[str] = mapped_column(Text, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(128))
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    changelog: Mapped[str | None] = mapped_column(Text)
+    download_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_current: Mapped[bool] = mapped_column(default=False, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    mod: Mapped[Mod] = relationship(back_populates="files")

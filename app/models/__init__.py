@@ -8,7 +8,7 @@ from app.models.forum import (
     ForumThread,
     ForumUpvote,
 )
-from app.models.mod import Mod, ModChangelog, ModComment, ModDiscussion, ModSnapshot
+from app.models.mod import Mod, ModChangelog, ModComment, ModDiscussion, ModFile, ModSnapshot
 from app.models.news import NEWS_KINDS, NewsPost
 from app.models.notification import NOTIFICATION_KINDS, Notification
 from app.models.reaction import REACTION_EMOJIS, ForumReaction
@@ -28,6 +28,7 @@ __all__ = [
     "ModChangelog",
     "ModComment",
     "ModDiscussion",
+    "ModFile",
     "ModSnapshot",
     "NewsPost",
     "NEWS_KINDS",
