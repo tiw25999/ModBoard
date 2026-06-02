@@ -39,7 +39,8 @@
       <li>
         <a href="/mod/{{ row.mod.id }}" class="thumb" aria-label="{{ row.mod.title or row.mod.name }}">
           {% if row.mod.thumbnail_url %}
-            <img src="{{ row.mod.thumbnail_url }}" alt="" loading="lazy">
+            <img src="{{ row.mod.thumbnail_url }}" alt="" loading="lazy"
+                 class="{% if row.mod.source == 'manual' %}fit-contain{% endif %}">
           {% endif %}
         </a>
         <div class="body">

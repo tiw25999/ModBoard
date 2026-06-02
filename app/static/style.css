@@ -2523,6 +2523,9 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   filter: saturate(0.9) contrast(1.05);
   transition: transform .4s ease, filter .4s ease;
 }
+/* Manual/game mods use landscape store art — fit the whole image into the
+   square thumb (letterboxed on the dark box) instead of centre-cropping it. */
+.modlist img.fit-contain { object-fit: contain; }
 
 .modlist li:hover img { transform: scale(1.06); filter: saturate(1.1) contrast(1.1); }
 
@@ -2612,15 +2615,16 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
 .detail-hero .thumb {
   display: block;
   width: 100%;
-  /* Landscape hero — matches game store / workshop art (which is almost
-     always landscape) so headers fill cleanly instead of being cropped
-     to a square band. */
-  aspect-ratio: 16 / 9;
+  /* Steam workshop previews are square — fill a 1:1 box. */
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   object-position: center;
   background: var(--ink-2);
   border-bottom: 1px solid var(--line);
 }
+/* Self-hosted/game mods use landscape store art (header/capsule) — give
+   them a 16:9 hero so it fills cleanly instead of being square-cropped. */
+.detail-hero .thumb.thumb-wide { aspect-ratio: 16 / 9; }
 
 .detail-hero .actions {
   padding: var(--s-4);

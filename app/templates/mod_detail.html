@@ -26,9 +26,9 @@
 <div class="detail-grid">
   <aside class="detail-hero">
     {% if mod.thumbnail_url %}
-      <img src="{{ mod.thumbnail_url }}" alt="" class="thumb">
+      <img src="{{ mod.thumbnail_url }}" alt="" class="thumb {% if mod.source == 'manual' %}thumb-wide{% endif %}">
     {% else %}
-      <div class="thumb" style="display:grid;place-items:center;font-family:var(--f-mono);color:var(--fg-3);font-size:11px;letter-spacing:.2em">NO IMAGE</div>
+      <div class="thumb {% if mod.source == 'manual' %}thumb-wide{% endif %}" style="display:grid;place-items:center;font-family:var(--f-mono);color:var(--fg-3);font-size:11px;letter-spacing:.2em">NO IMAGE</div>
     {% endif %}
     <div class="actions">
       {% if mod.source == 'manual' %}
