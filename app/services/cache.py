@@ -39,6 +39,22 @@ async def cached(
         return value
 
 
+def mark_seen(key: str, ttl_seconds: int) -> bool:
+    """Best-effort dedup. Returns True the first time `key` is seen
+    within `ttl_seconds` (and records it now), False if already seen.
+
+    Used to dedup view/download counts per IP. Per-process state — with
+    two replicas a visitor could be counted at most twice, which is an
+    acceptable inflation for non-billing counters.
+    """
+    now = time.monotonic()
+    hit = _store.get(key)
+    if hit and (now - hit[0]) < ttl_seconds:
+        return False
+    _store[key] = (now, True)
+    return True
+
+
 def invalidate(prefix: str = "") -> int:
     """Drop all keys (or keys starting with `prefix`). Returns count cleared."""
     if not prefix:

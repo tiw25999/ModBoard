@@ -64,3 +64,10 @@ async def test_invalidate_by_prefix():
     # other key still cached
     val = await cached("other:abc", 10, lambda: p("Y"))
     assert val == "X", "non-matching key should not be invalidated"
+
+
+def test_mark_seen_dedups_within_ttl():
+    from app.services.cache import mark_seen
+    assert mark_seen("view:42:1.2.3.4", 1000) is True   # first time → newly seen
+    assert mark_seen("view:42:1.2.3.4", 1000) is False  # within ttl → already seen
+    assert mark_seen("view:99:1.2.3.4", 1000) is True   # different key → newly seen
