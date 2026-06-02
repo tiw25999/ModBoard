@@ -34,12 +34,12 @@
       {% if mod.source == 'manual' %}
         {% if current_file %}
         <a class="btn primary" href="/mod/{{ mod.id }}/download">
-          <span>Download {{ current_file.version }}</span><span class="arrow">↓</span>
+          <span>Download latest</span><span class="arrow">↓</span>
         </a>
         {% else %}
         <span class="btn" style="opacity:.6">No file yet</span>
         {% endif %}
-        <a class="btn" href="/mod/{{ mod.id }}/versions"><span>All versions</span><span class="arrow">→</span></a>
+        <a class="btn" href="/mod/{{ mod.id }}/versions"><span>All versions &amp; formats</span><span class="arrow">→</span></a>
         {% if mod.github_url %}
         <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
           <span>Source</span><span class="arrow">↗</span>
@@ -89,7 +89,7 @@
       {% if current_file %}
       <div class="kpi">
         <span class="k">Latest</span>
-        <span class="v">{{ current_file.version }}</span>
+        <span class="v">{{ (current_file.version.split('(')[0] | trim) or current_file.version }}</span>
         <span class="sub">{{ (current_file.size_bytes / 1048576)|round(1) }} MB</span>
       </div>
       {% endif %}

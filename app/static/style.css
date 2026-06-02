@@ -2913,31 +2913,36 @@ h3 { font-size: 16px; margin: 0 0 var(--s-3); }
   letter-spacing: 0.06em;
   color: var(--fg-3);
 }
-.version-file {
-  font-family: var(--f-mono);
-  font-size: 12px;
-  color: var(--fg-2);
-  margin-top: var(--s-2);
-  word-break: break-all;
+.version-files {
+  display: grid;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px dashed var(--line);
 }
-.version-changelog {
-  color: var(--fg-1);
-  font-size: 14.5px;
-  line-height: 1.6;
-  margin: var(--s-3) 0 0;
-}
-.version-actions {
+.version-file-row {
   display: flex;
   align-items: center;
   gap: var(--s-4);
-  margin-top: var(--s-4);
   flex-wrap: wrap;
 }
-.version-dls {
+.version-dl-btn { flex-shrink: 0; }
+.version-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.version-file-size {
   font-family: var(--f-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--fg-3);
+}
+.version-file-note {
+  font-size: 13.5px;
+  color: var(--fg-2);
+  line-height: 1.5;
 }
 
 /* Manual-mod landing metrics: 2 columns (Downloads/Views) not 3. */

@@ -9,25 +9,34 @@
 <section class="prose-section">
   <div class="section-head">
     <span class="eyebrow">Versions</span>
-    <span class="section-meta">{{ files|length }} release{{ "" if files|length == 1 else "s" }}</span>
+    <span class="section-meta">{{ versions|length }} release{{ "" if versions|length == 1 else "s" }}</span>
   </div>
 
-  {% if files %}
+  {% if versions %}
   <div class="version-list">
-    {% for f in files %}
-    <article class="version-card {% if f.is_current %}is-current{% endif %}">
+    {% for g in versions %}
+    <article class="version-card {% if g.is_current %}is-current{% endif %}">
       <div class="version-head">
         <div class="version-id">
-          <span class="version-name">{{ f.version }}</span>
-          {% if f.is_current %}<span class="version-badge">current</span>{% endif %}
+          <span class="version-name">{{ g.version }}</span>
+          {% if g.is_current %}<span class="version-badge">latest</span>{% endif %}
         </div>
-        <div class="version-meta">{{ f.uploaded_at.strftime("%Y-%m-%d") }} &middot; {{ (f.size_bytes / 1048576)|round(2) }} MB</div>
+        <div class="version-meta">{{ g.uploaded_at.strftime("%Y-%m-%d") }}</div>
       </div>
-      <div class="version-file">{{ f.filename }}</div>
-      {% if f.changelog %}<p class="version-changelog">{{ f.changelog }}</p>{% endif %}
-      <div class="version-actions">
-        <a class="btn primary" href="/mod/{{ mod.id }}/download/{{ f.id }}"><span>Download</span><span class="arrow">↓</span></a>
-        <span class="version-dls">{{ f.download_count }} download{{ "" if f.download_count == 1 else "s" }}</span>
+
+      <div class="version-files">
+        {% for item in g.files %}
+        {% set f = item.file %}
+        <div class="version-file-row">
+          <a class="btn primary version-dl-btn" href="/mod/{{ mod.id }}/download/{{ f.id }}">
+            <span>Download · {{ item.format }}</span><span class="arrow">↓</span>
+          </a>
+          <div class="version-file-info">
+            <span class="version-file-size">{{ (f.size_bytes / 1048576)|round(2) }} MB · {{ f.download_count }} download{{ "" if f.download_count == 1 else "s" }}</span>
+            {% if f.changelog %}<span class="version-file-note">{{ f.changelog }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
       </div>
     </article>
     {% endfor %}

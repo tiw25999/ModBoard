@@ -76,6 +76,53 @@ async def _current_file(session: AsyncSession, mod_id: int) -> ModFile | None:
     )).scalar_one_or_none()
 
 
+def base_version(version: str) -> str:
+    """Group key for a file's version label: strip any parenthetical
+    format note so "1.0 (Installer .exe)" and "1.0 (ZIP)" both collapse
+    to "1.0" — the same release shown in two formats."""
+    return (version or "").split("(")[0].strip() or (version or "")
+
+
+_FORMAT_LABELS = {
+    "exe": "Installer (.exe)",
+    "zip": "ZIP (.zip)",
+    "7z": "7-Zip (.7z)",
+    "rar": "RAR (.rar)",
+    "apk": "Android (.apk)",
+    "dmg": "macOS (.dmg)",
+}
+
+
+def format_label(filename: str) -> str:
+    """Human download-format label derived from the file extension."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in (filename or "") else ""
+    return _FORMAT_LABELS.get(ext, (ext.upper() + " file") if ext else "Download")
+
+
+def group_versions(files: list[ModFile]) -> list[dict]:
+    """Collapse ModFile rows into one entry per release (by base version),
+    each carrying its download formats. Newest release first."""
+    from collections import OrderedDict
+    groups: "OrderedDict[str, dict]" = OrderedDict()
+    for f in files:
+        key = base_version(f.version)
+        g = groups.get(key)
+        if g is None:
+            g = {"version": key, "files": [], "uploaded_at": f.uploaded_at, "is_current": False}
+            groups[key] = g
+        g["files"].append({"file": f, "format": format_label(f.filename)})
+        if f.is_current:
+            g["is_current"] = True
+        if f.uploaded_at and (g["uploaded_at"] is None or f.uploaded_at > g["uploaded_at"]):
+            g["uploaded_at"] = f.uploaded_at
+    # Within each release, show the current file first, then newest-first.
+    for g in groups.values():
+        g["files"].sort(
+            key=lambda it: (not it["file"].is_current, -it["file"].uploaded_at.timestamp())
+        )
+    return list(groups.values())
+
+
 async def _counts(session: AsyncSession, mod_id: int) -> dict[str, int]:
     """Lightweight counts for nav badges on the detail page."""
     from sqlalchemy import func
@@ -244,10 +291,11 @@ async def mod_versions(
         select(ModFile).where(ModFile.mod_id == mod_id)
         .order_by(ModFile.uploaded_at.desc())
     )).scalars().all()
+    versions = group_versions(list(files))
     counts = await _counts(session, mod_id)
     return templates.TemplateResponse(
         request, "mod_versions.html",
-        {"mod": mod, "files": files, "counts": counts, "active_tab": "versions"},
+        {"mod": mod, "versions": versions, "counts": counts, "active_tab": "versions"},
     )
 
 
