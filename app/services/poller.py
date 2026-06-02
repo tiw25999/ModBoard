@@ -54,7 +54,10 @@ async def _fanout_to_subscribers(
 
 async def poll_once() -> None:
     async with SessionLocal() as session:
-        mods = (await session.execute(select(Mod))).scalars().all()
+        # Manual (self-hosted) mods have no Steam id to scrape — skip them.
+        mods = (await session.execute(
+            select(Mod).where(Mod.source == "steam")
+        )).scalars().all()
         if not mods:
             log.info("no mods to poll")
             return
