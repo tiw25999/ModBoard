@@ -106,6 +106,14 @@
 </p>
 {% endif %}
 
+{# ── Admin-only nudge: admin cookie ≠ user account ── #}
+{% if request.state.is_admin and not request.state.user %}
+<p style="margin-bottom:var(--s-5);padding:var(--s-3) var(--s-4);background:rgba(255,181,71,0.08);border:1px solid var(--amber);border-radius:var(--r-sm);color:var(--fg-1)">
+  Admin account is separate from your user account.
+  To purchase a membership, <a href="/auth/google/login?next=/donate" style="color:var(--amber)">sign in with Google</a> first.
+</p>
+{% endif %}
+
 {# ── Tier cards ── #}
 <h3 style="margin-bottom:var(--s-4)">Choose a tier</h3>
 <div class="tip-grid">

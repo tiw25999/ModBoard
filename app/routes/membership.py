@@ -30,7 +30,10 @@ async def membership_checkout(
 ):
     user_state = request.state.user
     if user_state is None:
-        return RedirectResponse("/auth/login?next=/donate", status_code=303)
+        # Admin cookie does not create a user session — send them to Google OAuth
+        # so a real user row exists before we create a membership.
+        login_url = "/auth/google/login?next=/donate" if request.state.is_admin else "/auth/login?next=/donate"
+        return RedirectResponse(login_url, status_code=303)
 
     tier = await session.get(MembershipTier, tier_id)
     if tier is None or not tier.active:
