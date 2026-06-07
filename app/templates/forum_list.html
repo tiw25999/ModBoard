@@ -68,7 +68,7 @@
       </div>
       <div class="thread-meta">
         <span>by
-          {% if t.author_user_id %}<a href="/u/{{ t.author_user_id }}">{% endif %}<b {% if t.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ t.author_name }}</b>{% if t.author_user_id %}</a>{% endif %}
+          {% if t.author_user_id %}<a href="/u/{{ t.author_user_id }}">{% endif %}<b {% if t.author_name == 'Developer' %}class="is-dev"{% endif %}>{{ t.author_name }}</b>{% if t.author_user_id %}</a>{% endif %}{% if t.author_user_id and t.author_user_id in member_emojis %}<sup title="Member" style="font-size:10px">{{ member_emojis[t.author_user_id] }}</sup>{% endif %}
         </span>
         <span>·</span>
         <span>{{ t.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>

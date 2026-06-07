@@ -184,6 +184,29 @@ async def forum_list(
                 select(func.count()).select_from(ForumThread).where(ForumThread.kind == k)
             )).scalar() or 0
         )
+
+    # Preload membership emoji for thread authors.
+    from app.models.membership import UserMembership, MembershipTier as _MT2
+    _list_author_ids = {t.author_user_id for t in threads if t.author_user_id}
+    list_member_emojis: dict[int, str] = {}
+    if _list_author_ids:
+        _lnow = datetime.now(timezone.utc)
+        _lrows = (await session.execute(
+            select(UserMembership)
+            .join(_MT2, UserMembership.tier_id == _MT2.id)
+            .where(
+                UserMembership.user_id.in_(_list_author_ids),
+                UserMembership.expires_at > _lnow,
+            )
+            .order_by(UserMembership.expires_at.desc())
+        )).scalars().all()
+        _lseen: set[int] = set()
+        for _lm in _lrows:
+            if _lm.user_id not in _lseen:
+                await session.refresh(_lm, ["tier"])
+                list_member_emojis[_lm.user_id] = _lm.tier.emoji
+                _lseen.add(_lm.user_id)
+
     return templates.TemplateResponse(
         request, "forum_list.html",
         {
@@ -193,6 +216,7 @@ async def forum_list(
             "active_status": status,
             "kinds": THREAD_KINDS,
             "statuses": THREAD_STATUSES,
+            "member_emojis": list_member_emojis,
         },
     )
 
@@ -377,6 +401,33 @@ async def forum_view(
         if r.voter_token == token:
             mine_by_target.setdefault(key, set()).add(r.emoji)
 
+    # Preload membership emoji for all authors — avoids N+1 queries.
+    from app.models.membership import UserMembership, MembershipTier as _MT
+    _author_ids: set[int] = set()
+    if thread.author_user_id:
+        _author_ids.add(thread.author_user_id)
+    for p in posts:
+        if p.author_user_id:
+            _author_ids.add(p.author_user_id)
+    member_emojis: dict[int, str] = {}
+    if _author_ids:
+        _mnow = datetime.now(timezone.utc)
+        _mrows = (await session.execute(
+            select(UserMembership)
+            .join(_MT, UserMembership.tier_id == _MT.id)
+            .where(
+                UserMembership.user_id.in_(_author_ids),
+                UserMembership.expires_at > _mnow,
+            )
+            .order_by(UserMembership.expires_at.desc())
+        )).scalars().all()
+        _seen: set[int] = set()
+        for _m in _mrows:
+            if _m.user_id not in _seen:
+                await session.refresh(_m, ["tier"])
+                member_emojis[_m.user_id] = _m.tier.emoji
+                _seen.add(_m.user_id)
+
     return templates.TemplateResponse(
         request, "forum_thread.html",
         {
@@ -384,6 +435,7 @@ async def forum_view(
             "posts": posts,
             "has_voted": has_voted,
             "voter_weight": voter_weight,
+            "member_emojis": member_emojis,
             "is_owner": thread.author_token == token
                         or (current_uid and thread.author_user_id == current_uid),
             "is_admin": _is_admin(request),
