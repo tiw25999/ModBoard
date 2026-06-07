@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Membership Active — ModBoard{% endblock %}
+{% block body %}
+
+<section class="page-head">
+  <div>
+    <span class="eyebrow">Support</span>
+    <h1>{% if membership %}Payment received{% else %}Processing…{% endif %}</h1>
+  </div>
+</section>
+
+{% if membership %}
+<div class="prose-section" style="max-width:560px">
+  <div class="prose">
+    <p style="font-size:3rem;margin:0">{{ membership.tier.emoji }}</p>
+    <p><strong>{{ membership.tier.name }} membership</strong> is now active.</p>
+    <p>Your forum votes carry <strong>×{{ membership.tier.vote_weight }}</strong> weight.</p>
+    <p style="color:var(--fg-2)">
+      Active until: <strong>{{ membership.expires_at.strftime("%Y-%m-%d") }}</strong>
+    </p>
+    <div style="display:flex;gap:var(--s-3);margin-top:var(--s-5)">
+      <a class="btn primary" href="/forum">Go to Forum</a>
+      <a class="btn" href="/">Back to Mods</a>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="prose-section" style="max-width:560px">
+  <div class="prose">
+    <p>Payment received — your membership is being activated. This takes less than a minute.</p>
+    <p style="color:var(--fg-2)">Refresh the page if it doesn't appear shortly.</p>
+    <div style="margin-top:var(--s-5)">
+      <a class="btn primary" href="/donate">Back to Support page</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
