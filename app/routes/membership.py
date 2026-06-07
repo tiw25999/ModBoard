@@ -116,8 +116,12 @@ async def stripe_webhook(request: Request, session: AsyncSession = Depends(get_d
         log.warning("webhook missing client_reference_id or tier_id — skipping")
         return JSONResponse({"status": "skipped"})
 
-    user_id = int(raw_uid)
-    tier_id = int(raw_tier)
+    try:
+        user_id = int(raw_uid)
+        tier_id = int(raw_tier)
+    except (TypeError, ValueError):
+        log.warning("webhook: bad user_id/tier_id: %r / %r", raw_uid, raw_tier)
+        return JSONResponse({"status": "bad_metadata"}, status_code=400)
     checkout_session_id = cs["id"]
 
     user = await session.get(User, user_id)

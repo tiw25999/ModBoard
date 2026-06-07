@@ -84,7 +84,7 @@ app.mount("/static", _CachedStaticFiles(directory="app/static"), name="static")
 # user-controlled href can pass it through:  href="{{ url|safe_url }}"
 # Blocks javascript:/data:/vbscript: schemes at render time.
 _error_templates.env.filters["safe_url"] = safe_url
-for _r in (auth_routes, forum_routes, public_routes):
+for _r in (auth_routes, forum_routes, public_routes, admin_routes, membership_routes):
     if hasattr(_r, "templates"):
         _r.templates.env.filters["safe_url"] = safe_url
 app.include_router(seo_routes.router)   # robots.txt + sitemap.xml at root
@@ -123,7 +123,7 @@ def _csp_for(nonce: str) -> str:
         "default-src 'self'; "
         "img-src 'self' https: data:; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "
+        f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net; "  # jsdelivr kept for SRI-pinned Chart.js (mod_stats.html)
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self'; "
         "frame-ancestors 'none'; "

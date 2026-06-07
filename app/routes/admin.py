@@ -32,8 +32,17 @@ from app.services.audit import log_event
 from app.services.poller import poll_once
 from app.services.textfmt import render
 
+import mimetypes as _mimetypes
+
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _mime_from_filename(filename: str) -> str | None:
+    """Determine MIME type from file extension — never trust the client's
+    Content-Type, which could be forged to serve HTML from a .zip upload."""
+    mime, _ = _mimetypes.guess_type(filename)
+    return mime or "application/octet-stream"
 
 
 async def _count(session: AsyncSession, model) -> int:
@@ -183,15 +192,36 @@ async def api_keys_page(
     keys = (await session.execute(
         select(AdminApiKey).order_by(AdminApiKey.created_at.desc())
     )).scalars().all()
-    return templates.TemplateResponse(
+
+    # Read the plain key from the short-lived flash cookie (never from URL).
+    newly_created = ""
+    newly_created_label = ""
+    flash_cookie = request.cookies.get("mb_key_flash", "")
+    if flash_cookie:
+        try:
+            from itsdangerous import URLSafeSerializer as _Ser
+            from app.config import settings as _cfg
+            data = _Ser(_cfg.session_secret, salt="api-key-flash").loads(
+                flash_cookie, max_age=120
+            )
+            newly_created = data.get("key", "")
+            newly_created_label = data.get("label", "")
+        except Exception:
+            pass
+
+    resp = templates.TemplateResponse(
         request, "admin_api_keys.html",
         {
             "keys": keys,
             "now": datetime.now(timezone.utc),
-            "newly_created": request.query_params.get("new_key", ""),
-            "newly_created_label": request.query_params.get("new_label", ""),
+            "newly_created": newly_created,
+            "newly_created_label": newly_created_label,
         },
     )
+    # Clear the flash cookie immediately — the key is now in the page.
+    if flash_cookie:
+        resp.delete_cookie("mb_key_flash", path="/admin/api-keys", samesite="strict")
+    return resp
 
 
 @router.post("/api-keys")
@@ -213,9 +243,26 @@ async def api_keys_create(
     await log_event(session, "admin_action", request,
                     detail=f"create api_key label={label} ttl={ttl_hours}h")
     await session.commit()
-    from urllib.parse import urlencode
-    qs = urlencode({"new_key": raw, "new_label": label})
-    return RedirectResponse(f"/admin/api-keys?{qs}", status_code=303)
+    # Store the plain key in a short-lived signed cookie instead of the
+    # URL — keeps it out of Caddy access logs, browser history, and
+    # Referer headers. The cookie is httponly=False so JS can read and
+    # clear it, but it is SameSite=Strict so it cannot be read cross-origin.
+    from itsdangerous import URLSafeSerializer as _Ser
+    from app.config import settings as _cfg
+    _tok = _Ser(_cfg.session_secret, salt="api-key-flash").dumps(
+        {"key": raw, "label": label}
+    )
+    from fastapi.responses import Response as _Resp
+    resp = RedirectResponse("/admin/api-keys", status_code=303)
+    resp.set_cookie(
+        "mb_key_flash", _tok,
+        max_age=120,        # 2 minutes — just long enough to load the page
+        httponly=False,     # JS on the page reads + clears it immediately
+        samesite="strict",
+        secure=settings.secure_cookies,
+        path="/admin/api-keys",
+    )
+    return resp
 
 
 @router.post("/api-keys/{key_id}/revoke")
@@ -435,7 +482,7 @@ async def admin_upload_file(
         filename=(upload.filename or "file")[:255],
         stored_path=stored_path,
         size_bytes=size,
-        content_type=(upload.content_type or None),
+        content_type=_mime_from_filename(upload.filename or ""),
         sha256=sha,
         changelog=changelog.strip() or None,
         is_current=True,

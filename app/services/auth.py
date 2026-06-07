@@ -36,13 +36,13 @@ def set_admin_session(response: Response) -> None:
         token,
         max_age=ADMIN_COOKIE_MAX_AGE,
         httponly=True,
-        samesite="lax",
+        samesite="strict",
         secure=settings.secure_cookies,
     )
 
 
 def clear_admin_session(response: Response) -> None:
-    response.delete_cookie(ADMIN_COOKIE, samesite="lax")
+    response.delete_cookie(ADMIN_COOKIE, samesite="strict")
 
 
 def is_admin(request: Request) -> bool:

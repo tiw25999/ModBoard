@@ -58,9 +58,11 @@ def render(text: str) -> str:
     escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped, flags=re.DOTALL)
     escaped = re.sub(r"(?<![*\w])\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"<em>\1</em>", escaped, flags=re.DOTALL)
 
-    # Linkify URLs
+    # Linkify URLs — escape the URL again inside the attribute so any
+    # residual HTML special chars (e.g. &amp;quot; from double-escaping)
+    # cannot break out of the href="..." context.
     def _link(m: re.Match) -> str:
-        url = m.group(1)
+        url = _html.escape(m.group(1), quote=True)
         return f'<a href="{url}" target="_blank" rel="noopener nofollow">{url}</a>'
     escaped = _URL_RE.sub(_link, escaped)
 
