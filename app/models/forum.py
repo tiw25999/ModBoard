@@ -40,7 +40,7 @@ class ForumThread(Base):
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
 
-    upvotes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    vote_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     reply_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -84,13 +84,20 @@ class ForumPost(Base):
 
 class ForumUpvote(Base):
     __tablename__ = "forum_upvotes"
-    __table_args__ = (UniqueConstraint("thread_id", "voter_token", name="uq_upvote_thread_voter"),)
+    __table_args__ = (
+        UniqueConstraint("thread_id", "voter_token", name="uq_upvote_thread_voter"),
+        UniqueConstraint("thread_id", "voter_user_id", name="uq_upvote_thread_user"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     thread_id: Mapped[int] = mapped_column(
         ForeignKey("forum_threads.id", ondelete="CASCADE"), index=True
     )
     voter_token: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    voter_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    vote_weight: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     thread: Mapped[ForumThread] = relationship(back_populates="upvote_records")

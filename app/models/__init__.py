@@ -14,6 +14,7 @@ from app.models.notification import NOTIFICATION_KINDS, Notification
 from app.models.reaction import REACTION_EMOJIS, ForumReaction
 from app.models.roadmap import ROADMAP_STATUSES, RoadmapItem
 from app.models.subscription import ModSubscription
+from app.models.membership import MembershipTier, UserMembership
 from app.models.user import User
 
 __all__ = [
@@ -40,6 +41,8 @@ __all__ = [
     "RoadmapItem",
     "ModSubscription",
     "User",
+    "MembershipTier",
+    "UserMembership",
     "THREAD_KINDS",
     "THREAD_STATUSES",
 ]
