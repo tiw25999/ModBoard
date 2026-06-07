@@ -107,7 +107,7 @@
         <form method="post" action="/auth/logout" style="display:inline">
       <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
           <button type="submit" class="nav-link nav-exit" title="Sign out of all sessions"
-                  style="background:none;border:none;font:inherit;cursor:pointer;padding:0">Logout</button>
+                  style="background:none;border:none;font:inherit;cursor:pointer;padding:0">Sign out</button>
         </form>
       {% else %}
         <a href="/auth/login?next={{ path }}" class="nav-link nav-login">Sign in</a>

@@ -97,8 +97,8 @@
 </div>
 {% endif %}
 
-{# ── Login nudge ── #}
-{% if not request.state.user %}
+{# ── Login nudge — only for completely logged-out visitors ── #}
+{% if not request.state.user and not request.state.is_admin %}
 <p style="margin-bottom:var(--s-5);color:var(--fg-2)">
   <a href="/auth/login?next=/donate" style="color:var(--amber)">Sign in with Google</a>
   to link your membership to your account and unlock vote weight.
@@ -119,7 +119,7 @@
       <div class="tip-name">{{ tier.name }}</div>
       <div class="tip-tag">30 days &middot; vote &times;{{ tier.vote_weight }}</div>
       <span class="tip-cta">
-        {% if not request.state.user %}Sign in to get →
+        {% if not request.state.user and not request.state.is_admin %}Sign in to get →
         {% elif not tier.stripe_price_id %}Coming soon
         {% else %}Get {{ tier.name }} →
         {% endif %}
