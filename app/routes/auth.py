@@ -540,7 +540,7 @@ async def me_export(
         "threads": [{
             "id": t.id, "title": t.title, "kind": t.kind, "status": t.status,
             "body": t.body_raw, "created_at": t.created_at.isoformat(),
-            "upvotes": t.upvotes, "reply_count": t.reply_count,
+            "upvotes": t.vote_score, "reply_count": t.reply_count,
         } for t in threads],
         "posts": [{
             "id": p.id, "thread_id": p.thread_id, "body": p.body_raw,

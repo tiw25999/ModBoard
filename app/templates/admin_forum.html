@@ -58,7 +58,7 @@
             <span>by <b>{{ t.author_name }}</b></span>
             <span>· {{ t.created_at.strftime("%b %d %H:%M") }}</span>
             <span>· {{ t.reply_count }} repl{{ "y" if t.reply_count == 1 else "ies" }}</span>
-            <span>· {{ t.upvotes }} ▲</span>
+            <span>· {{ t.vote_score }} ▲</span>
           </div>
         </div>
 

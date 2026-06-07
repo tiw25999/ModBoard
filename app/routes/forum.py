@@ -323,7 +323,7 @@ async def forum_new_submit(
         author_name=author_name,
         author_token=token,
         author_user_id=user.id if user else None,
-        upvotes=0,
+        vote_score=0,
         reply_count=0,
         pinned=False,
         locked=False,

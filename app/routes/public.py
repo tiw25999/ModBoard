@@ -508,7 +508,7 @@ async def public_user_profile(
     ).scalars().all()
     upvotes_received = int(
         (await session.execute(
-            select(_func.coalesce(_func.sum(ForumThread.upvotes), 0))
+            select(_func.coalesce(_func.sum(ForumThread.vote_score), 0))
             .where(ForumThread.author_user_id == user_id)
         )).scalar() or 0
     )
