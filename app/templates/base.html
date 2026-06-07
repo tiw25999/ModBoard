@@ -47,7 +47,7 @@
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=EB+Garamond:ital,wght@1,500&display=swap">
 
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <link rel="stylesheet" href="/static/style.css?v=7">
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -72,7 +72,7 @@
       <a href="/" class="nav-link {% if path == '/' %}is-active{% endif %}">Mods</a>
       <a href="/forum" class="nav-link {% if path.startswith('/forum') %}is-active{% endif %}">Forum</a>
       <a href="/news" class="nav-link {% if path == '/news' %}is-active{% endif %}">News</a>
-      <a href="/donate" class="nav-link nav-donate {% if path == '/donate' %}is-active{% endif %}">♥ Donate</a>
+      <a href="/donate" class="nav-link nav-donate {% if path == '/donate' %}is-active{% endif %}">♥ Membership</a>
       {% if is_admin %}
         <a href="/admin" class="nav-link nav-admin {% if on_admin_page %}is-active{% endif %}">⚙ Admin</a>
       {% endif %}

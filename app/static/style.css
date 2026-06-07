@@ -1896,6 +1896,63 @@ select.input {
   border-color: var(--amber);
 }
 
+/* ── Membership benefits & explainer ── */
+.membership-benefits {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-4);
+  margin: var(--s-5) 0;
+}
+@media (max-width: 640px) { .membership-benefits { grid-template-columns: 1fr; } }
+
+.benefit-item {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.benefit-icon { font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+.benefit-item strong { display: block; color: var(--fg-0); margin-bottom: 4px; }
+.benefit-item p { margin: 0; font-size: 13px; color: var(--fg-2); line-height: 1.5; }
+
+.membership-explainer {
+  margin: var(--s-5) 0;
+}
+.membership-explainer h3 { margin-bottom: var(--s-3); }
+.membership-explainer > p { color: var(--fg-2); font-size: 14px; margin-bottom: var(--s-4); }
+
+.weight-table {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  font-size: 13px;
+}
+.weight-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr;
+  gap: 0;
+  padding: 10px var(--s-4);
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+.weight-row:last-child { border-bottom: none; }
+.weight-row.header {
+  background: var(--ink-1);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.weight-row:not(.header):hover { background: var(--ink-1); }
+.weight-row span:nth-child(3) { color: var(--amber); font-weight: 700; font-family: var(--f-mono); }
+@media (max-width: 560px) {
+  .weight-row { grid-template-columns: 2fr 1fr 1fr; }
+  .weight-row span:last-child { display: none; }
+}
+
 .tip-trust {
   text-align: center;
   font-family: var(--f-mono);

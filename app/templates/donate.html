@@ -1,42 +1,112 @@
 {% extends "base.html" %}
-{% block title %}Support ModBoard{% endblock %}
-{% block description %}Help keep ModBoard ad-free and self-hosted. Pick a membership tier — each gives 30 days of forum vote weight.{% endblock %}
+{% block title %}Membership — ModBoard{% endblock %}
+{% block description %}Support ModBoard and unlock weighted forum votes. One-time payment, 30 days, no auto-renewal.{% endblock %}
 {% block body %}
 
 <section class="page-head">
   <div>
     <span class="eyebrow">Support the project</span>
-    <h1>Keep ModBoard <span class="serif-accent">running</span></h1>
-    <div class="detail-id" style="margin-top:10px;color:var(--fg-2);max-width:60ch">
-      ModBoard is self-hosted, ad-free, and open source. Server, domain, and Cloudflare add up.
-      Each tier gives you <strong>30 days</strong> of membership and weighted forum votes — no auto-renewal, ever.
-    </div>
+    <h1>ModBoard <span class="serif-accent">Membership</span></h1>
+    <p style="color:var(--fg-2);max-width:58ch;margin-top:var(--s-3)">
+      ModBoard is self-hosted, ad-free, and open source.
+      Membership keeps it running — and gives you a louder voice in the community forum.
+    </p>
   </div>
 </section>
 
+{# ── Benefits strip ── #}
+<div class="membership-benefits">
+  <div class="benefit-item">
+    <span class="benefit-icon">🗳️</span>
+    <div>
+      <strong>Weighted forum votes</strong>
+      <p>Your upvote counts for more. Higher tier = more weight per vote, so great ideas surface faster.</p>
+    </div>
+  </div>
+  <div class="benefit-item">
+    <span class="benefit-icon">🏅</span>
+    <div>
+      <strong>Tier badge on your name</strong>
+      <p>Your membership emoji appears next to your name on every post and in the nav bar.</p>
+    </div>
+  </div>
+  <div class="benefit-item">
+    <span class="benefit-icon">🔓</span>
+    <div>
+      <strong>No lock-in, ever</strong>
+      <p>One-time payment. 30 days active. No subscription, no auto-renewal — pay again when you want.</p>
+    </div>
+  </div>
+  <div class="benefit-item">
+    <span class="benefit-icon">❤️</span>
+    <div>
+      <strong>Keep the lights on</strong>
+      <p>Covers VPS, domain, Cloudflare, backups, and dev time for new features.</p>
+    </div>
+  </div>
+</div>
+
+{# ── Vote weight explainer ── #}
+<div class="membership-explainer">
+  <h3>How weighted votes work</h3>
+  <p>
+    Every logged-in user can vote on forum threads. Members' votes carry extra weight —
+    the score on a thread reflects real community priority, not just click count.
+  </p>
+  <div class="weight-table">
+    <div class="weight-row header">
+      <span>Tier</span><span>Price</span><span>Vote weight</span><span>What it means</span>
+    </div>
+    <div class="weight-row">
+      <span>Free (logged in)</span><span>$0</span><span>×1</span><span>Normal vote</span>
+    </div>
+    <div class="weight-row">
+      <span>☕ Coffee</span><span>$3</span><span>×2</span><span>Counts as 2 votes</span>
+    </div>
+    <div class="weight-row">
+      <span>🍪 Snack</span><span>$5</span><span>×3</span><span>Counts as 3 votes</span>
+    </div>
+    <div class="weight-row">
+      <span>🍱 Lunch</span><span>$10</span><span>×5</span><span>Counts as 5 votes</span>
+    </div>
+    <div class="weight-row">
+      <span>⭐ Big Tip</span><span>$25</span><span>×10</span><span>Counts as 10 votes</span>
+    </div>
+    <div class="weight-row">
+      <span>🌟 Sponsor</span><span>$50</span><span>×20</span><span>Counts as 20 votes</span>
+    </div>
+  </div>
+</div>
+
+{# ── Errors ── #}
 {% if error %}
 <div class="thread-empty" style="color:var(--signal-red,#e55);margin-bottom:var(--s-4)">
   {% if error == "invalid_tier" %}That tier is no longer available.
-  {% elif error == "payment_unavailable" %}Payment service is temporarily unavailable. Please try again later.
+  {% elif error == "payment_unavailable" %}Payment is temporarily unavailable — please try again shortly.
   {% else %}Something went wrong. Please try again.
   {% endif %}
 </div>
 {% endif %}
 
+{# ── Active membership notice ── #}
 {% if current_mem %}
 <div style="background:rgba(255,181,71,.1);border:1px solid var(--amber);border-radius:var(--r-md);padding:var(--s-4);margin-bottom:var(--s-5)">
   {{ current_mem.tier.emoji }} You're a <strong>{{ current_mem.tier.name }}</strong> member
-  until <strong>{{ current_mem.expires_at.strftime("%Y-%m-%d") }}</strong>.
-  Paying again adds another 30 days from today.
+  — active until <strong>{{ current_mem.expires_at.strftime("%Y-%m-%d") }}</strong>.
+  Paying again stacks another 30 days from today.
 </div>
 {% endif %}
 
+{# ── Login nudge ── #}
 {% if not request.state.user %}
-<p style="margin-bottom:var(--s-4);color:var(--fg-2)">
-  <a href="/auth/login?next=/donate" style="color:var(--amber)">Log in</a> to link your payment to your account and unlock vote weight.
+<p style="margin-bottom:var(--s-5);color:var(--fg-2)">
+  <a href="/auth/login?next=/donate" style="color:var(--amber)">Sign in with Google</a>
+  to link your membership to your account and unlock vote weight.
 </p>
 {% endif %}
 
+{# ── Tier cards ── #}
+<h3 style="margin-bottom:var(--s-4)">Choose a tier</h3>
 <div class="tip-grid">
   {% for tier in tiers %}
   <form method="post" action="/membership/checkout">
@@ -47,11 +117,11 @@
       <span class="tip-emoji" aria-hidden="true">{{ tier.emoji }}</span>
       <div class="tip-amount">${{ (tier.price_usd_cents // 100) }}</div>
       <div class="tip-name">{{ tier.name }}</div>
-      <div class="tip-tag">30 days · vote weight ×{{ tier.vote_weight }}</div>
+      <div class="tip-tag">30 days &middot; vote &times;{{ tier.vote_weight }}</div>
       <span class="tip-cta">
-        {% if not request.state.user %}Login to support →
+        {% if not request.state.user %}Sign in to get →
         {% elif not tier.stripe_price_id %}Coming soon
-        {% else %}Support →
+        {% else %}Get {{ tier.name }} →
         {% endif %}
       </span>
     </button>
@@ -60,18 +130,8 @@
 </div>
 
 <p class="tip-trust">
-  🔒 Payments handled by <a href="https://stripe.com" target="_blank" rel="noopener">Stripe</a> — your card never touches our server.
-  Cards · Apple Pay · Google Pay accepted worldwide.
+  🔒 Payments via <a href="https://stripe.com" target="_blank" rel="noopener">Stripe</a> — card, Apple Pay, Google Pay.
+  Your card details never touch our server.
 </p>
-
-<section class="donate-meta">
-  <h3>Where does the money go?</h3>
-  <ul>
-    <li><strong>Hosting</strong> — VPS for the FastAPI app + Postgres + cloudflared</li>
-    <li><strong>Domain</strong> — annual renewal</li>
-    <li><strong>Backups</strong> — off-site storage of nightly DB dumps</li>
-    <li><strong>Time</strong> — feature development, bug fixes, scraping resilience as Steam changes</li>
-  </ul>
-</section>
 
 {% endblock %}
