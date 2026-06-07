@@ -244,7 +244,13 @@ header .brand-sub { color: var(--fg-2); font-weight: 500; }
 }
 
 .nav-exit {
-  color: var(--rust) !important;
+  color: var(--amber) !important;
+  border: 1px solid var(--amber);
+}
+.nav-exit:hover {
+  color: var(--ink-0) !important;
+  background: var(--amber);
+  box-shadow: 0 0 14px var(--amber-glow);
 }
 
 /* ---------- logged-in user chip + login button ---------- */
