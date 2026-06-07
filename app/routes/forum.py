@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db import get_db
+from app.services.membership import vote_weight_for
 from app.models import (
     REACTION_EMOJIS,
     THREAD_KINDS,
@@ -343,16 +344,21 @@ async def forum_view(
             select(ForumPost).where(ForumPost.thread_id == thread_id).order_by(ForumPost.created_at.asc())
         )
     ).scalars().all()
-    has_voted = (
-        await session.execute(
-            select(ForumUpvote).where(
-                ForumUpvote.thread_id == thread_id,
-                ForumUpvote.voter_token == token,
-            )
-        )
-    ).scalar_one_or_none() is not None
     user = await current_user(request, session)
     current_uid = user.id if user else None
+
+    has_voted = False
+    voter_weight = 1
+    if current_uid is not None:
+        has_voted = (
+            await session.execute(
+                select(ForumUpvote).where(
+                    ForumUpvote.thread_id == thread_id,
+                    ForumUpvote.voter_user_id == current_uid,
+                )
+            )
+        ).scalar_one_or_none() is not None
+        voter_weight = await vote_weight_for(session, current_uid)
 
     # Reactions: build {(post_id|None for thread): {emoji: count}} +
     # the current token's own reactions so we can highlight them.
@@ -377,6 +383,7 @@ async def forum_view(
             "thread": thread,
             "posts": posts,
             "has_voted": has_voted,
+            "voter_weight": voter_weight,
             "is_owner": thread.author_token == token
                         or (current_uid and thread.author_user_id == current_uid),
             "is_admin": _is_admin(request),
@@ -502,11 +509,15 @@ async def forum_reply(
 @router.post("/{thread_id}/upvote")
 async def forum_upvote(
     request: Request,
-    response: Response,
     thread_id: int,
     session: AsyncSession = Depends(get_db),
 ):
-    token = get_or_create_token(request, response)
+    user_state = request.state.user
+    if user_state is None:
+        from fastapi.responses import JSONResponse as _JSONResponse
+        return _JSONResponse({"error": "login_required"}, status_code=401)
+
+    user_id = user_state["id"]
     thread = await session.get(ForumThread, thread_id)
     if thread is None:
         raise HTTPException(404)
@@ -515,39 +526,38 @@ async def forum_upvote(
         await session.execute(
             select(ForumUpvote).where(
                 ForumUpvote.thread_id == thread_id,
-                ForumUpvote.voter_token == token,
+                ForumUpvote.voter_user_id == user_id,
             )
         )
     ).scalar_one_or_none()
 
-    # Atomic counter update: avoids drift when two clicks race. The
-    # row-level UPDATE serialises against the unique constraint on
-    # (thread_id, voter_token), so either the insert wins (counter +1)
-    # or the delete wins (counter -1), never both.
     from sqlalchemy import update as _update
     if existing is not None:
+        snapped = existing.vote_weight
         await session.delete(existing)
         await session.execute(
             _update(ForumThread)
-            .where(ForumThread.id == thread_id, ForumThread.upvotes > 0)
-            .values(upvotes=ForumThread.upvotes - 1)
+            .where(ForumThread.id == thread_id, ForumThread.vote_score >= snapped)
+            .values(vote_score=ForumThread.vote_score - snapped)
         )
     else:
+        weight = await vote_weight_for(session, user_id)
         session.add(ForumUpvote(
             thread_id=thread_id,
-            voter_token=token,
+            voter_token="",
+            voter_user_id=user_id,
+            vote_weight=weight,
             created_at=datetime.now(timezone.utc),
         ))
         try:
             await session.flush()
         except IntegrityError:
-            # Someone else won the race — don't bump the counter.
             await session.rollback()
             return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)
         await session.execute(
             _update(ForumThread)
             .where(ForumThread.id == thread_id)
-            .values(upvotes=ForumThread.upvotes + 1)
+            .values(vote_score=ForumThread.vote_score + weight)
         )
     await session.commit()
     return RedirectResponse(f"/forum/{thread_id}/{thread.slug}", status_code=303)

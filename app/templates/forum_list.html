@@ -33,13 +33,23 @@
 <ul class="thread-list">
   {% for t in threads %}
   <li class="thread-row {% if t.pinned %}pinned{% endif %} {% if t.locked %}locked{% endif %} status-{{ t.status }}">
+    {% if request.state.user %}
     <form class="thread-vote" method="post" action="/forum/{{ t.id }}/upvote">
       <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
-      <button type="submit" class="upvote-btn" title="Upvote">
+      <button type="submit" class="upvote-btn" title="Vote">
         <span class="arrow">▲</span>
-        <span class="n">{{ t.upvotes }}</span>
+        <span class="n">{{ t.vote_score }}</span>
       </button>
     </form>
+    {% else %}
+    <div class="thread-vote">
+      <a href="/auth/login?next=/forum" class="upvote-btn"
+         title="Login to vote" style="display:grid;place-items:center;text-decoration:none">
+        <span style="font-size:11px">🔒</span>
+        <span class="n">{{ t.vote_score }}</span>
+      </a>
+    </div>
+    {% endif %}
 
     <div class="thread-main">
       <h3 class="thread-title">

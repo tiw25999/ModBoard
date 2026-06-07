@@ -13,7 +13,7 @@
   {% if thread.edited_at %}"dateModified": {{ thread.edited_at.isoformat()|tojson }},{% endif %}
   "author": {"@type": "Person", "name": {{ thread.author_name|tojson }}},
   "interactionStatistic": [
-    {"@type": "InteractionCounter", "interactionType": "https://schema.org/LikeAction", "userInteractionCount": {{ thread.upvotes }}},
+    {"@type": "InteractionCounter", "interactionType": "https://schema.org/LikeAction", "userInteractionCount": {{ thread.vote_score }}},
     {"@type": "InteractionCounter", "interactionType": "https://schema.org/CommentAction", "userInteractionCount": {{ posts|length }}}
   ],
   "url": {{ ('https://' ~ request.url.netloc ~ '/forum/' ~ thread.id ~ '/' ~ thread.slug)|tojson }}
@@ -26,13 +26,25 @@
 
 <article class="thread-head-card">
   <div class="thread-vote thread-vote-lg">
+    {% if request.state.user %}
     <form method="post" action="/forum/{{ thread.id }}/upvote">
       <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
-      <button type="submit" class="upvote-btn {% if has_voted %}voted{% endif %}" title="{% if has_voted %}Remove upvote{% else %}Upvote{% endif %}">
+      <button type="submit" class="upvote-btn {% if has_voted %}voted{% endif %}"
+              title="{% if has_voted %}Remove vote{% else %}Vote (×{{ voter_weight }}){% endif %}">
         <span class="arrow">▲</span>
-        <span class="n">{{ thread.upvotes }}</span>
+        <span class="n">{{ thread.vote_score }}</span>
+        {% if voter_weight > 1 %}<span style="font-size:9px;opacity:.7">×{{ voter_weight }}</span>{% endif %}
       </button>
     </form>
+    {% else %}
+    <div style="text-align:center">
+      <a href="/auth/login?next=/forum/{{ thread.id }}/{{ thread.slug }}" class="upvote-btn"
+         title="Login to vote" style="display:grid;place-items:center;gap:2px;text-decoration:none">
+        <span style="font-size:12px">🔒</span>
+        <span class="n">{{ thread.vote_score }}</span>
+      </a>
+    </div>
+    {% endif %}
   </div>
 
   <div class="thread-head-body">
