@@ -21,6 +21,7 @@ from app.routes import forum as forum_routes
 from app.routes import public as public_routes
 from app.routes import feeds as feeds_routes
 from app.routes import seo as seo_routes
+from app.routes import membership as membership_routes
 from app.services.auth import is_admin as _is_admin_cookie
 from app.services.poller import poller_task
 from app.services.session import parse_session
@@ -91,6 +92,7 @@ app.include_router(forum_routes.router)
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(admin_api_routes.router)  # /api/admin/* (bearer-token)
+app.include_router(membership_routes.router)
 
 
 # ---- Security headers ---------------------------------------------------
@@ -156,6 +158,7 @@ async def limit_request_size(request: Request, call_next):
     is_upload = request.method == "POST" and (
         (path.startswith("/admin/mods/") and path.endswith("/files"))
         or (path.startswith("/api/admin/mods/") and path.endswith("/files"))
+        or path == "/webhook/stripe"
     )
     if not is_upload:
         cl = request.headers.get("content-length")

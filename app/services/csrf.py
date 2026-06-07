@@ -33,6 +33,7 @@ CSRF_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 _EXEMPT_PATHS = (
     "/auth/google/callback",  # cross-origin GET from Google
     "/api/admin",             # bearer-token API (Authorization header IS the auth)
+    "/webhook/stripe",        # Stripe sends POST with its own signature auth
 )
 
 
