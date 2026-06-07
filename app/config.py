@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Example: "https://workshopmods.org"
     canonical_base: str = ""
 
+    # Stripe — required for membership payments.
+    # Use sk_test_... / whsec_test_... for local dev + Stripe test mode.
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+
     @property
     def google_oauth_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)

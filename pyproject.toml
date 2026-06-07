@@ -17,6 +17,7 @@ dependencies = [
     "bcrypt>=4.2",
     "itsdangerous>=2.2",
     "bleach>=6.1",
+    "stripe>=7.0",
 ]
 
 [project.optional-dependencies]

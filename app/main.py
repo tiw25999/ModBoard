@@ -56,6 +56,13 @@ if len(_settings.session_secret) < 32 or _settings.session_secret in (
         "print(secrets.token_urlsafe(48))'`) before booting."
     )
 
+if not _settings.stripe_secret_key:
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "STRIPE_SECRET_KEY is not set — membership payments will fail. "
+        "Set it in .env to enable Stripe Checkout."
+    )
+
 # Static files served with aggressive caching. We bust caches by
 # bumping the `?v=N` query string in <link>/<script> tags rather than
 # changing filenames, so it's safe to tell browsers + Cloudflare to
