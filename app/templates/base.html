@@ -98,6 +98,7 @@
             <span class="user-chip-initial">{{ me.name[0]|upper }}</span>
           {% endif %}
           <span class="user-chip-name">{{ me.name }}</span>
+          {% if request.state.member_emoji %}<sup title="Member" style="font-size:10px">{{ request.state.member_emoji }}</sup>{% endif %}
         </a>
       {% endif %}
 

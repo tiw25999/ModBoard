@@ -237,6 +237,7 @@ async def attach_current_user(request: Request, call_next):
     request.state.unread_count = 0
     request.state.is_admin = _is_admin_cookie(request)
     request.state.banner = None
+    request.state.member_emoji = None
     # Hardened canonical base — read from settings.canonical_base so
     # `rel=canonical` in base.html can't be host-header-poisoned.
     request.state.canonical_base = _settings.canonical_base.rstrip("/") if _settings.canonical_base else ""
@@ -270,6 +271,24 @@ async def attach_current_user(request: Request, call_next):
                         .where(Notification.user_id == user.id, Notification.read_at.is_(None))
                     )).scalar() or 0
                 )
+                # Membership badge for nav
+                from app.models.membership import UserMembership, MembershipTier
+                from sqlalchemy import select as _msel
+                from datetime import datetime as _dt, timezone as _tz
+                _now = _dt.now(_tz.utc)
+                _mem = (await db.execute(
+                    _msel(UserMembership)
+                    .join(MembershipTier, UserMembership.tier_id == MembershipTier.id)
+                    .where(
+                        UserMembership.user_id == user.id,
+                        UserMembership.expires_at > _now,
+                    )
+                    .order_by(UserMembership.expires_at.desc())
+                    .limit(1)
+                )).scalar_one_or_none()
+                if _mem:
+                    await db.refresh(_mem, ["tier"])
+                    request.state.member_emoji = _mem.tier.emoji
 
     # Fetch the active banner news post (newest one flagged show_banner)
     # cheaply — once per request, cached for 60s site-wide.

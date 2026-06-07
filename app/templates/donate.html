@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Support ModBoard — donate{% endblock %}
-{% block description %}Help keep ModBoard ad-free and self-hosted. Pick a tier — Stripe handles the payment securely (cards, Apple Pay, Google Pay).{% endblock %}
+{% block title %}Support ModBoard{% endblock %}
+{% block description %}Help keep ModBoard ad-free and self-hosted. Pick a membership tier — each gives 30 days of forum vote weight.{% endblock %}
 {% block body %}
 
 <section class="page-head">
@@ -9,53 +9,54 @@
     <h1>Keep ModBoard <span class="serif-accent">running</span></h1>
     <div class="detail-id" style="margin-top:10px;color:var(--fg-2);max-width:60ch">
       ModBoard is self-hosted, ad-free, and open source. Server, domain, and Cloudflare add up.
-      Pick whatever feels right — every tier covers a real bill.
+      Each tier gives you <strong>30 days</strong> of membership and weighted forum votes — no auto-renewal, ever.
     </div>
   </div>
 </section>
 
-{# 5 fixed tiers — Stripe Thailand doesn't allow custom_unit_amount yet,
-   so we use a ladder of preset prices instead. #}
+{% if error %}
+<div class="thread-empty" style="color:var(--signal-red,#e55);margin-bottom:var(--s-4)">
+  {% if error == "invalid_tier" %}That tier is no longer available.
+  {% elif error == "payment_unavailable" %}Payment service is temporarily unavailable. Please try again later.
+  {% else %}Something went wrong. Please try again.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if current_mem %}
+<div style="background:rgba(255,181,71,.1);border:1px solid var(--amber);border-radius:var(--r-md);padding:var(--s-4);margin-bottom:var(--s-5)">
+  {{ current_mem.tier.emoji }} You're a <strong>{{ current_mem.tier.name }}</strong> member
+  until <strong>{{ current_mem.expires_at.strftime("%Y-%m-%d") }}</strong>.
+  Paying again adds another 30 days from today.
+</div>
+{% endif %}
+
+{% if not request.state.user %}
+<p style="margin-bottom:var(--s-4);color:var(--fg-2)">
+  <a href="/auth/login?next=/donate" style="color:var(--amber)">Log in</a> to link your payment to your account and unlock vote weight.
+</p>
+{% endif %}
+
 <div class="tip-grid">
-  <a class="tip-card tier-coffee" href="https://buy.stripe.com/eVqcN5ekQ7tq5kL2pT1gs04" target="_blank" rel="noopener">
-    <span class="tip-emoji" aria-hidden="true">☕</span>
-    <div class="tip-amount">$3</div>
-    <div class="tip-name">Coffee</div>
-    <div class="tip-tag">Keeps the lights on for a day</div>
-    <span class="tip-cta">Send →</span>
-  </a>
-
-  <a class="tip-card tier-snack" href="https://buy.stripe.com/6oU14nfoU6pmfZpe8B1gs03" target="_blank" rel="noopener">
-    <span class="tip-emoji" aria-hidden="true">🍪</span>
-    <div class="tip-amount">$5</div>
-    <div class="tip-name">Snack</div>
-    <div class="tip-tag">Fuel the dev. Much appreciated.</div>
-    <span class="tip-cta">Send →</span>
-  </a>
-
-  <a class="tip-card tier-lunch" href="https://buy.stripe.com/9B65kD6So4he4gH6G91gs02" target="_blank" rel="noopener">
-    <span class="tip-emoji" aria-hidden="true">🍱</span>
-    <div class="tip-amount">$10</div>
-    <div class="tip-name">Lunch</div>
-    <div class="tip-tag">A week of server costs.</div>
-    <span class="tip-cta">Send →</span>
-  </a>
-
-  <a class="tip-card tier-big" href="https://buy.stripe.com/7sYfZh4Kg29600r0hL1gs01" target="_blank" rel="noopener">
-    <span class="tip-emoji" aria-hidden="true">⭐</span>
-    <div class="tip-amount">$25</div>
-    <div class="tip-name">Big tip</div>
-    <div class="tip-tag">A month of server bills.</div>
-    <span class="tip-cta">Send →</span>
-  </a>
-
-  <a class="tip-card tier-sponsor" href="https://buy.stripe.com/dRm3cvdgM7tq9B1fcF1gs00" target="_blank" rel="noopener">
-    <span class="tip-emoji" aria-hidden="true">🌟</span>
-    <div class="tip-amount">$50</div>
-    <div class="tip-name">Sponsor</div>
-    <div class="tip-tag">Full hosting + dev time for a month.</div>
-    <span class="tip-cta">Send →</span>
-  </a>
+  {% for tier in tiers %}
+  <form method="post" action="/membership/checkout">
+    <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
+    <input type="hidden" name="tier_id" value="{{ tier.id }}">
+    <button type="submit" class="tip-card"
+            {% if not tier.stripe_price_id %}disabled title="Coming soon"{% endif %}>
+      <span class="tip-emoji" aria-hidden="true">{{ tier.emoji }}</span>
+      <div class="tip-amount">${{ (tier.price_usd_cents // 100) }}</div>
+      <div class="tip-name">{{ tier.name }}</div>
+      <div class="tip-tag">30 days · vote weight ×{{ tier.vote_weight }}</div>
+      <span class="tip-cta">
+        {% if not request.state.user %}Login to support →
+        {% elif not tier.stripe_price_id %}Coming soon
+        {% else %}Support →
+        {% endif %}
+      </span>
+    </button>
+  </form>
+  {% endfor %}
 </div>
 
 <p class="tip-trust">
@@ -71,7 +72,6 @@
     <li><strong>Backups</strong> — off-site storage of nightly DB dumps</li>
     <li><strong>Time</strong> — feature development, bug fixes, scraping resilience as Steam changes</li>
   </ul>
-  <p class="donate-thanks">No donor perks or tiers behind a paywall — just gratitude. If you want to be acknowledged, post on the <a href="/forum">forum</a> and I'll thank you publicly.</p>
 </section>
 
 {% endblock %}

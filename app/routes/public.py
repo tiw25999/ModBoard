@@ -399,8 +399,27 @@ async def news_index(request: Request, session: AsyncSession = Depends(get_db)):
 
 
 @router.get("/donate", response_class=HTMLResponse)
-async def donate(request: Request):
-    return templates.TemplateResponse(request, "donate.html", {})
+async def donate(request: Request, session: AsyncSession = Depends(get_db)):
+    from app.models.membership import MembershipTier
+    from app.services.membership import active_membership as _active_mem
+
+    tiers = (await session.execute(
+        select(MembershipTier).where(MembershipTier.active.is_(True))
+        .order_by(MembershipTier.price_usd_cents)
+    )).scalars().all()
+
+    user_state = request.state.user
+    current_mem = None
+    if user_state:
+        current_mem = await _active_mem(session, user_state["id"])
+        if current_mem:
+            await session.refresh(current_mem, ["tier"])
+
+    return templates.TemplateResponse(request, "donate.html", {
+        "tiers": tiers,
+        "current_mem": current_mem,
+        "error": request.query_params.get("error"),
+    })
 
 
 @router.get("/privacy", response_class=HTMLResponse)
