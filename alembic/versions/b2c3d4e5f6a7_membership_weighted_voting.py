@@ -97,6 +97,8 @@ def downgrade() -> None:
 
     op.drop_constraint("uq_upvote_thread_user", "forum_upvotes", type_="unique")
     op.drop_index("ix_forum_upvotes_voter_user_id", table_name="forum_upvotes")
+    # Drop FK before dropping the column — PostgreSQL refuses to drop a column
+    # that is still referenced by a foreign key constraint.
     op.drop_constraint("fk_forum_upvotes_voter_user", "forum_upvotes", type_="foreignkey")
     op.drop_column("forum_upvotes", "vote_weight")
     op.drop_column("forum_upvotes", "voter_user_id")

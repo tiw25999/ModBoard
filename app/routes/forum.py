@@ -596,7 +596,7 @@ async def forum_upvote(
         weight = await vote_weight_for(session, user_id)
         session.add(ForumUpvote(
             thread_id=thread_id,
-            voter_token="",
+            voter_token="",  # sentinel: authenticated votes use voter_user_id, not token
             voter_user_id=user_id,
             vote_weight=weight,
             created_at=datetime.now(timezone.utc),

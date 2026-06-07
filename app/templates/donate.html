@@ -83,6 +83,7 @@
 <div class="thread-empty" style="color:var(--signal-red,#e55);margin-bottom:var(--s-4)">
   {% if error == "invalid_tier" %}That tier is no longer available.
   {% elif error == "payment_unavailable" %}Payment is temporarily unavailable — please try again shortly.
+  {% elif error == "already_active" %}You already have an active membership for that tier. It will be extended when it expires.
   {% else %}Something went wrong. Please try again.
   {% endif %}
 </div>

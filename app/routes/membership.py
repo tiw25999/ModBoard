@@ -39,7 +39,12 @@ async def membership_checkout(
     if not tier.stripe_price_id:
         return RedirectResponse("/donate?error=invalid_tier", status_code=303)
 
-    stripe.api_key = settings.stripe_secret_key
+    # Guard: if user already has an active membership for this tier, do not
+    # create a duplicate checkout — they would be charged again for no benefit.
+    current = await active_membership(session, user_state["id"])
+    if current is not None and current.tier_id == tier_id:
+        return RedirectResponse("/donate?error=already_active", status_code=303)
+
     host = (settings.canonical_base or str(request.base_url)).rstrip("/")
     try:
         checkout = stripe.checkout.Session.create(
@@ -63,11 +68,18 @@ async def membership_success(
     session_id: str = "",
     session: AsyncSession = Depends(get_db),
 ):
+    # Require login — the session_id is in browser history and Referer headers.
+    user_state = request.state.user
+    if user_state is None:
+        return RedirectResponse(f"/auth/login?next=/membership/success?session_id={session_id}", status_code=303)
+
     mem = None
     if session_id:
         mem = (await session.execute(
-            select(UserMembership)
-            .where(UserMembership.stripe_checkout_session_id == session_id)
+            select(UserMembership).where(
+                UserMembership.stripe_checkout_session_id == session_id,
+                UserMembership.user_id == user_state["id"],  # must belong to caller
+            )
         )).scalar_one_or_none()
         if mem is not None:
             await session.refresh(mem, ["tier"])
@@ -113,7 +125,15 @@ async def stripe_webhook(request: Request, session: AsyncSession = Depends(get_d
         log.warning("webhook: user_id %s not found — skipping", user_id)
         return JSONResponse({"status": "user_not_found"})
 
-    paid_at = datetime.now(timezone.utc)
+    # Use Stripe's actual charge timestamp so expiry is precise even when
+    # the webhook arrives late (Stripe retries for up to 3 days).
+    stripe_created = cs.get("created")
+    paid_at = (
+        datetime.fromtimestamp(stripe_created, tz=timezone.utc)
+        if stripe_created
+        else datetime.now(timezone.utc)
+    )
+
     result = await process_checkout_completed(
         session,
         user_id=user_id,

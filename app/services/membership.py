@@ -48,6 +48,7 @@ async def process_checkout_completed(
     """Insert a UserMembership row for a completed Stripe checkout.
 
     Idempotent: if session_id already exists, returns None without inserting.
+    Uses a savepoint so the outer transaction remains valid on duplicate.
     """
     row = UserMembership(
         user_id=user_id,
@@ -56,10 +57,13 @@ async def process_checkout_completed(
         expires_at=paid_at + timedelta(days=30),
         created_at=paid_at,
     )
-    session.add(row)
+    # Use a savepoint (nested transaction) so that an IntegrityError on the
+    # UNIQUE constraint rolls back only this insert, leaving the outer session
+    # alive. A bare session.rollback() would invalidate the outer transaction.
     try:
-        await session.flush()
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
         return row
     except IntegrityError:
-        await session.rollback()
         return None

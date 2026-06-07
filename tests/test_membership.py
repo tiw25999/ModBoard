@@ -41,7 +41,10 @@ async def _cleanup_user(uid: int) -> None:
 
 async def _tier_id() -> int:
     async with _factory() as s:
-        row = (await s.execute(select(MembershipTier).limit(1))).scalar_one()
+        # ORDER BY id guarantees Coffee (id=1, weight=2) every time.
+        row = (await s.execute(
+            select(MembershipTier).order_by(MembershipTier.id).limit(1)
+        )).scalar_one()
         return row.id
 
 

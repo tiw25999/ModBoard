@@ -33,9 +33,11 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # With multiple app replicas behind the load balancer, only one should
-    # run the Steam poller (otherwise we double the API rate + risk duplicate
-    # notifications). Set RUN_POLLER=false on the standby replica.
+    # Configure Stripe once at startup — the library uses a module-level
+    # global; setting it per-request is a shared-mutable-state footgun.
+    import stripe as _stripe
+    _stripe.api_key = _settings.stripe_secret_key
+
     task = None
     if os.getenv("RUN_POLLER", "true").lower() == "true":
         task = asyncio.create_task(poller_task())
@@ -271,23 +273,11 @@ async def attach_current_user(request: Request, call_next):
                         .where(Notification.user_id == user.id, Notification.read_at.is_(None))
                     )).scalar() or 0
                 )
-                # Membership badge for nav
-                from app.models.membership import UserMembership, MembershipTier
-                from sqlalchemy import select as _msel
-                from datetime import datetime as _dt, timezone as _tz
-                _now = _dt.now(_tz.utc)
-                _mem = (await db.execute(
-                    _msel(UserMembership)
-                    .join(MembershipTier, UserMembership.tier_id == MembershipTier.id)
-                    .where(
-                        UserMembership.user_id == user.id,
-                        UserMembership.expires_at > _now,
-                    )
-                    .order_by(UserMembership.expires_at.desc())
-                    .limit(1)
-                )).scalar_one_or_none()
+                # Membership badge for nav — reuse the service function to
+                # avoid duplicating the query logic here.
+                from app.services.membership import active_membership as _active_mem
+                _mem = await _active_mem(db, user.id)
                 if _mem:
-                    await db.refresh(_mem, ["tier"])
                     request.state.member_emoji = _mem.tier.emoji
 
     # Fetch the active banner news post (newest one flagged show_banner)
