@@ -11,6 +11,7 @@ Endpoint reference at /admin/api-docs (also cookie-gated).
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -299,7 +300,7 @@ async def api_upload_file(
         mod_id=mod_id, version=version,
         filename=(upload.filename or "file")[:255],
         stored_path=stored_path, size_bytes=size,
-        content_type=(upload.content_type or None),
+        content_type=(mimetypes.guess_type(upload.filename or "")[0] or "application/octet-stream"),
         sha256=sha, changelog=changelog.strip() or None,
         is_current=True, uploaded_at=datetime.now(timezone.utc),
     )

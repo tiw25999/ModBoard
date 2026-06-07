@@ -41,7 +41,7 @@
         {% endif %}
         <a class="btn" href="/mod/{{ mod.id }}/versions"><span>All versions &amp; formats</span><span class="arrow">→</span></a>
         {% if mod.github_url %}
-        <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
+        <a class="btn" href="{{ mod.github_url|safe_url }}" target="_blank" rel="noopener">
           <span>Source</span><span class="arrow">↗</span>
         </a>
         {% endif %}
@@ -56,11 +56,11 @@
             {% endif %}
           </button>
         </form>
-        <a class="btn" href="{{ mod.workshop_url }}" target="_blank" rel="noopener">
+        <a class="btn" href="{{ mod.workshop_url|safe_url }}" target="_blank" rel="noopener">
           <span>Open on Steam</span><span class="arrow">↗</span>
         </a>
         {% if mod.github_url %}
-        <a class="btn" href="{{ mod.github_url }}" target="_blank" rel="noopener">
+        <a class="btn" href="{{ mod.github_url|safe_url }}" target="_blank" rel="noopener">
           <span>Source</span><span class="arrow">↗</span>
         </a>
         {% endif %}

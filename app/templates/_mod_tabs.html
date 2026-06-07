@@ -52,7 +52,7 @@
     {% if mod.source == 'manual' %}
     <span style="color:var(--fg-2)">{{ mod.game_name or "Self-hosted" }}</span>
     {% else %}
-    <a href="{{ mod.workshop_url }}" target="_blank" rel="noopener" style="color:var(--amber)">
+    <a href="{{ mod.workshop_url|safe_url }}" target="_blank" rel="noopener" style="color:var(--amber)">
       Open on Steam ↗
     </a>
     {% endif %}

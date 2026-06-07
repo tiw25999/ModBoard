@@ -316,7 +316,7 @@
         <td style="padding:10px 8px">
           {% if is_live %}
           <form method="post" action="/admin/api-keys/{{ k.id }}/revoke" style="display:inline"
-                onsubmit="return confirm('Revoke {{ k.label }}? Cannot be undone.');">
+                onsubmit="return confirm({{ ('Revoke ' ~ k.label ~ '? Cannot be undone.')|tojson }});">
             <input type="hidden" name="_csrf" value="{{ request.state.csrf_token }}">
             <button type="submit" class="btn-danger-link">Revoke</button>
           </form>

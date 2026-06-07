@@ -98,7 +98,7 @@
       <a href="/admin/mods/{{ m.id }}/files" class="btn-row-link">Files</a>
       {% endif %}
       {% if m.workshop_url %}
-      <a href="{{ m.workshop_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
+      <a href="{{ m.workshop_url|safe_url }}" target="_blank" rel="noopener" class="btn-row-link">Steam ↗</a>
       {% endif %}
       <form method="post" action="/admin/mods/{{ m.id }}/delete"
             onsubmit="return confirm('Delete {{ (m.title or m.name)|e }}?\n\nSnapshots, comments, discussions, and changelogs will be removed.');">
